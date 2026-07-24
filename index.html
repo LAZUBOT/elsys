@@ -483,7 +483,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-database.js";
+        import { getFirestore, doc, setDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const API_BASE = 'https://admin.ftth.iq/api';
         let authToken = '';
@@ -505,7 +505,6 @@
         const explicitFirebaseConfig = {
             apiKey: "AIzaSyC_X_XzwaBDY6TUNxE2hJzJHtClyXnA7ec",
             authDomain: "wzftth.firebaseapp.com",
-            databaseURL: "https://wzftth-default-rtdb.firebaseio.com",
             projectId: "wzftth",
             storageBucket: "wzftth.firebasestorage.app",
             messagingSenderId: "409016821583",
@@ -514,7 +513,7 @@
         };
 
         // Firebase Setup & Variables
-        let db = null;
+        let firestore = null;
         let auth = null;
 
         function setFirebaseStatus(message, type = 'info') {
@@ -546,7 +545,7 @@
             try {
                 const app = initializeApp(firebaseConfig);
                 auth = getAuth(app);
-                db = getDatabase(app);
+                firestore = getFirestore(app);
                 setFirebaseStatus('جارٍ الاتصال بـ Firebase...', 'info');
 
                 await new Promise((resolve, reject) => {
@@ -571,7 +570,7 @@
                             setFirebaseStatus('Firebase متصل', 'success');
                             resolve();
                         } catch (authErr) {
-                            firebaseReady = Boolean(db);
+                            firebaseReady = Boolean(firestore);
                             setFirebaseStatus('Firebase غير متاح - سيتم الاعتماد على التخزين المحلي', 'warning');
                             reject(authErr);
                         }
@@ -591,7 +590,7 @@
         function setupNotesSyncForAgent(agentId) {
             if (!agentId) return;
 
-            if (!db || !firebaseReady) {
+            if (!firestore || !firebaseReady) {
                 setFirebaseStatus('Firebase غير متاح - سيتم حفظ الملاحظات محليًا', 'warning');
                 return;
             }
@@ -600,39 +599,35 @@
             const localKey = `ftth_notes_agent_${agentId}`;
             const localNotes = localStorage.getItem(localKey);
             if (localNotes) {
-                try { 
-                    userNotes = { ...userNotes, ...JSON.parse(localNotes) }; 
+                try {
+                    userNotes = { ...userNotes, ...JSON.parse(localNotes) };
                 } catch(e){}
             }
 
-            // 2. Realtime Database listener scoped strictly to Agent ID
-            if (!db) return;
-
+            // 2. Firestore listener scoped strictly to Agent ID
             try {
-                const notesRef = ref(db, `notes/${agentId}`);
-                onValue(notesRef, (snapshot) => {
-                    const data = snapshot.val();
-                    if (data) {
-                        Object.keys(data).forEach((customerId) => {
-                            const item = data[customerId];
-                            const noteText = typeof item === 'string' ? item : item?.note;
-                            if (typeof noteText === 'string') {
-                                userNotes[customerId] = noteText;
-                                
-                                const noteInput = document.querySelector(`input[data-customer-id="${customerId}"]`);
-                                if (noteInput && document.activeElement !== noteInput) {
-                                    noteInput.value = noteText;
-                                }
+                const notesCollection = collection(firestore, 'notes', agentId, 'customerNotes');
+                onSnapshot(notesCollection, (snapshot) => {
+                    snapshot.docs.forEach((docItem) => {
+                        const customerId = docItem.id;
+                        const data = docItem.data();
+                        const noteText = typeof data?.note === 'string' ? data.note : '';
+
+                        if (noteText) {
+                            userNotes[customerId] = noteText;
+
+                            const noteInput = document.querySelector(`input[data-customer-id="${customerId}"]`);
+                            if (noteInput && document.activeElement !== noteInput) {
+                                noteInput.value = noteText;
                             }
-                        });
-                        // Backup updated agent notes to LocalStorage
-                        localStorage.setItem(localKey, JSON.stringify(userNotes));
-                    }
+                        }
+                    });
+                    localStorage.setItem(localKey, JSON.stringify(userNotes));
                 }, (error) => {
-                    console.warn("Realtime Database notice (Operating seamlessly in local cache):", error.message || error);
+                    console.warn("Firestore sync notice (Operating seamlessly in local cache):", error.message || error);
                 });
             } catch (err) {
-                console.warn("Realtime Database listener fallback:", err);
+                console.warn("Firestore listener fallback:", err);
             }
         }
 
@@ -646,19 +641,45 @@
                 localStorage.setItem(localKey, JSON.stringify(userNotes));
             }
 
-            // 2. Save to Realtime Database under notes/{agentId}/{customerId}
-            if (db && currentAgentId && firebaseReady) {
+            // 2. Save to Firestore under notes/{agentId}/customerNotes/{customerId}
+            if (firestore && currentAgentId && firebaseReady) {
+                setNoteSaveStatus(customerId, 'pending');
                 try {
-                    const noteItemRef = ref(db, `notes/${currentAgentId}/${customerId}`);
-                    await set(noteItemRef, {
+                    const noteItemRef = doc(firestore, 'notes', currentAgentId, 'customerNotes', customerId);
+                    await setDoc(noteItemRef, {
                         note: noteText,
                         customerId: String(customerId),
                         agentId: String(currentAgentId),
                         updatedAt: new Date().toISOString()
                     });
+                    setNoteSaveStatus(customerId, 'success');
+                    showAlert('تم حفظ الملاحظة في Firestore بنجاح', 'success');
                 } catch (e) {
-                    console.warn('Realtime Database save error (Saved locally):', e.message || e);
+                    setNoteSaveStatus(customerId, 'error');
+                    console.warn('Firestore save error (Saved locally):', e.message || e);
+                    showAlert('فشل حفظ الملاحظة في Firestore، تم الاحتفاظ بها محلياً', 'error');
                 }
+            }
+        }
+
+        function setNoteSaveStatus(customerId, status) {
+            const icon = document.querySelector(`i[data-note-status="${customerId}"]`);
+            if (!icon) return;
+
+            icon.className = 'absolute left-2 text-[10px] pointer-events-none';
+            if (status === 'pending') {
+                icon.classList.add('fa-solid', 'fa-spinner', 'fa-spin', 'text-sky-400');
+                icon.title = 'جارٍ حفظ الملاحظة في Firestore...';
+            } else if (status === 'success') {
+                icon.classList.add('fa-solid', 'fa-circle-check', 'text-emerald-400');
+                icon.title = 'تم حفظ الملاحظة في Firestore';
+                setTimeout(() => setNoteSaveStatus(customerId, 'idle'), 2000);
+            } else if (status === 'error') {
+                icon.classList.add('fa-solid', 'fa-triangle-exclamation', 'text-amber-400');
+                icon.title = 'فشل الحفظ في Firestore، تم الاحتفاظ بها محلياً';
+            } else {
+                icon.classList.add('fa-solid', 'fa-cloud-arrow-up', 'text-slate-500');
+                icon.title = 'تزامن سحابي عبر Firestore';
             }
         }
 
@@ -1090,7 +1111,7 @@
                             <input type="text" value="${escapeHtml(savedNote)}" data-customer-id="${item.id}" placeholder="أضف ملاحظة..."
                                 onchange="onNoteChanged('${item.id}', this.value)"
                                 class="w-full bg-slate-950/80 border border-slate-700/80 rounded-lg py-1 px-2 text-xs text-amber-300 placeholder-slate-600 focus:border-amber-400 outline-none transition">
-                            <i class="fa-solid fa-cloud-arrow-up absolute left-2 text-[10px] text-slate-500 pointer-events-none" title="تزامن سحابي عبر Realtime DB"></i>
+                            <i data-note-status="${item.id}" class="fa-solid fa-cloud-arrow-up absolute left-2 text-[10px] text-slate-500 pointer-events-none" title="تزامن سحابي عبر Firestore"></i>
                         </div>
                     </td>
                     <td class="p-3 whitespace-nowrap text-center">
