@@ -479,19 +479,16 @@
         منظومة إدارة الكوابل والمشتركين FTTH - 2026
     </footer>
 
+    <script src="firebase-sync.js"></script>
+
     <!-- Firebase SDK Imports & Main Logic -->
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import {
-            getAuth,
             createUserWithEmailAndPassword,
             signInWithEmailAndPassword,
-            signOut,
-            signInAnonymously,
-            signInWithCustomToken,
-            onAuthStateChanged
+            signOut
         } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { doc, setDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const API_BASE = 'https://admin.ftth.iq/api';
         let authToken = '';
@@ -542,51 +539,27 @@
         }
 
         async function initFirebase() {
-            let firebaseConfig = explicitFirebaseConfig;
-            
-            if (typeof __firebase_config !== 'undefined' && __firebase_config) {
-                try {
-                    firebaseConfig = JSON.parse(__firebase_config);
-                } catch (err) {
-                    console.warn("Using default project Firebase configuration");
-                }
-            }
-
+            setFirebaseStatus('جارٍ الاتصال بـ Firebase...', 'info');
             try {
-                if (!app) {
-                    app = initializeApp(firebaseConfig);
+                const ok = await window.firebaseSync.initFirebase();
+                if (!ok) {
+                    firebaseReady = false;
+                    setFirebaseStatus('Firebase غير متاح - سيتم الاعتماد على التخزين المحلي', 'warning');
+                    return;
                 }
-                auth = getAuth(app);
-                firestore = getFirestore(app);
-                setFirebaseStatus('جارٍ الاتصال بـ Firebase...', 'info');
 
-                await new Promise((resolve, reject) => {
-                    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-                        unsubscribe();
+                const handles = window.firebaseSync.getFirebaseHandles();
+                auth = handles.auth || null;
+                firestore = handles.firestore || null;
 
-                        if (user) {
-                            firebaseReady = true;
-                            setFirebaseStatus('Firebase متصل', 'success');
-                            resolve();
-                            return;
-                        }
+                firebaseReady = true;
+                setFirebaseStatus('Firebase متصل', 'success');
 
-                        try {
-                            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                                await signInWithCustomToken(auth, __initial_auth_token);
-                            } else {
-                                await signInAnonymously(auth);
-                            }
-
-                            firebaseReady = true;
-                            setFirebaseStatus('Firebase متصل', 'success');
-                            resolve();
-                        } catch (authErr) {
-                            firebaseReady = Boolean(firestore);
-                            setFirebaseStatus('Firebase غير متاح - سيتم الاعتماد على التخزين المحلي', 'warning');
-                            reject(authErr);
-                        }
-                    }, (err) => reject(err));
+                window.firebaseSync.registerDataCallback((items) => {
+                    fetchedCustomersData = items;
+                    filteredCustomersData = items;
+                    populateFilterDropdowns();
+                    applyFacetedFilters();
                 });
 
                 if (currentAgentId) {
@@ -599,78 +572,126 @@
             }
         }
 
+        function getNotesCollectionRef(agentId) {
+            if (!firestore || !agentId) return null;
+            return collection(firestore, 'notes', String(agentId), 'customerNotes');
+        }
+
+        function getNoteDocRef(agentId, customerId) {
+            if (!firestore || !agentId || !customerId) return null;
+            return doc(firestore, 'notes', String(agentId), 'customerNotes', String(customerId));
+        }
+
+        function applyCloudNotesToInputs() {
+            Object.entries(userNotes).forEach(([customerId, noteText]) => {
+                if (!customerId || typeof noteText !== 'string') return;
+                const noteInput = document.querySelector(`input[data-customer-id="${customerId}"]`);
+                if (noteInput && document.activeElement !== noteInput) {
+                    noteInput.value = noteText;
+                }
+            });
+        }
+
         function setupNotesSyncForAgent(agentId) {
             if (!agentId) return;
+
+            const localKey = `ftth_notes_agent_${agentId}`;
+            const localNotes = localStorage.getItem(localKey);
+            if (localNotes) {
+                try {
+                    userNotes = { ...userNotes, ...JSON.parse(localNotes) };
+                    applyCloudNotesToInputs();
+                } catch (e) {
+                    console.warn('Failed to restore local notes backup:', e);
+                }
+            }
 
             if (!firestore || !firebaseReady) {
                 setFirebaseStatus('Firebase غير متاح - سيتم حفظ الملاحظات محليًا', 'warning');
                 return;
             }
 
-            // 1. Restore local notes backup using Agent ID
-            const localKey = `ftth_notes_agent_${agentId}`;
-            const localNotes = localStorage.getItem(localKey);
-            if (localNotes) {
-                try {
-                    userNotes = { ...userNotes, ...JSON.parse(localNotes) };
-                } catch(e){}
-            }
-
-            // 2. Firestore listener scoped strictly to Agent ID
             try {
-                const notesCollection = collection(firestore, 'notes', agentId, 'customerNotes');
+                const notesCollection = getNotesCollectionRef(agentId);
+                if (!notesCollection) return;
+
                 onSnapshot(notesCollection, (snapshot) => {
-                    snapshot.docs.forEach((docItem) => {
+                    const mergedNotes = {};
+                    snapshot.forEach((docItem) => {
                         const customerId = docItem.id;
-                        const data = docItem.data();
+                        const data = docItem.data() || {};
                         const noteText = typeof data?.note === 'string' ? data.note : '';
-
                         if (noteText) {
-                            userNotes[customerId] = noteText;
-
-                            const noteInput = document.querySelector(`input[data-customer-id="${customerId}"]`);
-                            if (noteInput && document.activeElement !== noteInput) {
-                                noteInput.value = noteText;
-                            }
+                            mergedNotes[customerId] = noteText;
                         }
                     });
+
+                    userNotes = { ...userNotes, ...mergedNotes };
+                    applyCloudNotesToInputs();
                     localStorage.setItem(localKey, JSON.stringify(userNotes));
+                    setFirebaseStatus('Firestore متصل ومزامن', 'success');
                 }, (error) => {
-                    console.warn("Firestore sync notice (Operating seamlessly in local cache):", error.message || error);
+                    console.warn('Firestore sync notice (operating with local cache):', error.message || error);
                 });
             } catch (err) {
-                console.warn("Firestore listener fallback:", err);
+                console.warn('Firestore listener fallback:', err);
             }
         }
+
+        let noteSaveTimers = {};
 
         async function saveNoteToCloud(customerId, noteText) {
             if (!customerId) return;
             userNotes[customerId] = noteText;
-            
-            // 1. Local backup using Agent ID
+
+            const customerRecord = fetchedCustomersData.find((item) => String(item.id) === String(customerId));
+            if (customerRecord) {
+                customerRecord.note = noteText;
+            }
+
             if (currentAgentId) {
                 const localKey = `ftth_notes_agent_${currentAgentId}`;
                 localStorage.setItem(localKey, JSON.stringify(userNotes));
             }
 
-            // 2. Save to Firestore under notes/{agentId}/customerNotes/{customerId}
-            if (firestore && currentAgentId && firebaseReady) {
-                setNoteSaveStatus(customerId, 'pending');
-                try {
-                    const noteItemRef = doc(firestore, 'notes', currentAgentId, 'customerNotes', customerId);
-                    await setDoc(noteItemRef, {
-                        note: noteText,
-                        customerId: String(customerId),
-                        agentId: String(currentAgentId),
-                        updatedAt: new Date().toISOString()
-                    });
-                    setNoteSaveStatus(customerId, 'success');
-                    showAlert('تم حفظ الملاحظة في Firestore بنجاح', 'success');
-                } catch (e) {
-                    setNoteSaveStatus(customerId, 'error');
-                    console.warn('Firestore save error (Saved locally):', e.message || e);
-                    showAlert('فشل حفظ الملاحظة في Firestore، تم الاحتفاظ بها محلياً', 'error');
-                }
+            if (!firebaseReady) {
+                setNoteSaveStatus(customerId, 'error');
+                showAlert('Firebase غير جاهز حالياً، تم الاحتفاظ بالملاحظة محلياً', 'warning');
+                return;
+            }
+
+            setNoteSaveStatus(customerId, 'pending');
+            try {
+                await window.firebaseSync.saveNoteToCloud(customerId, noteText);
+                setNoteSaveStatus(customerId, 'success');
+                showAlert('تم حفظ الملاحظة في Firestore بنجاح', 'success');
+            } catch (e) {
+                setNoteSaveStatus(customerId, 'error');
+                console.warn('Firestore save error (saved locally):', e.message || e);
+                showAlert('فشل حفظ الملاحظة في Firestore، تم الاحتفاظ بها محلياً', 'error');
+            }
+        }
+
+        async function syncCustomerRecordsToFirestore(customers, zoneId) {
+            if (!firebaseReady || !Array.isArray(customers) || customers.length === 0) {
+                return;
+            }
+            return window.firebaseSync.syncCustomerRecordsToFirestore(customers, zoneId);
+        }
+
+        async function syncAgentProfileToFirestore() {
+            if (!firestore || !currentAgentId || !firebaseReady) return;
+
+            try {
+                const profileRef = doc(firestore, 'agents', String(currentAgentId));
+                await setDoc(profileRef, {
+                    agentId: String(currentAgentId),
+                    name: currentAgentName || '',
+                    updatedAt: new Date().toISOString(),
+                    source: 'web-app'
+                }, { merge: true });
+            } catch (err) {
+                console.warn('Agent profile sync failed:', err);
             }
         }
 
@@ -775,6 +796,7 @@
                 // Save agent info
                 currentAgentId = data.model?.self?.id || null;
                 currentAgentName = data.model?.self?.displayValue || 'غير معروف';
+                window.firebaseSync.setContext({ agentId: currentAgentId, agentName: currentAgentName, zoneId: null });
 
                 // Display agent info in header
                 document.getElementById('currentAgentName').innerText = currentAgentName;
@@ -783,6 +805,7 @@
                 // Setup notes sync specifically for this Agent ID
                 if (currentAgentId) {
                     setupNotesSyncForAgent(currentAgentId);
+                    await syncAgentProfileToFirestore();
                 }
 
                 const zones = data.model?.zones || [];
@@ -801,6 +824,11 @@
             }
         }
 
+        async function loadCustomersFromFirestore(zoneId) {
+            if (!firebaseReady || !zoneId) return null;
+            return window.firebaseSync.loadCustomersFromFirestore(zoneId);
+        }
+
         async function onZoneChanged(zoneId) {
             if (!zoneId) return;
 
@@ -813,8 +841,16 @@
             progressFill.style.width = '10%';
 
             fetchedCustomersData = [];
+            window.firebaseSync.setContext({ agentId: currentAgentId, agentName: currentAgentName, zoneId: zoneId });
 
             try {
+                const firestoreData = await loadCustomersFromFirestore(zoneId);
+                if (firestoreData && firestoreData.length > 0) {
+                    renderTablePage();
+                    loader.classList.add('hidden');
+                    tableContainer.classList.remove('hidden');
+                    return;
+                }
                 // Fetch customer IDs list in selected Zone
                 const url = `${API_BASE}/customers?pageSize=50&pageNumber=1&sortCriteria.property=self.displayValue&sortCriteria.direction=asc&zoneIds=${encodeURIComponent(zoneId)}`;
                 const response = await fetch(url, {
@@ -880,6 +916,7 @@
                     });
                 }
 
+                await syncCustomerRecordsToFirestore(fetchedCustomersData, zoneId);
                 populateFilterDropdowns();
                 applyFacetedFilters();
 
@@ -1131,6 +1168,7 @@
                     <td class="p-3 whitespace-nowrap min-w-[160px]">
                         <div class="relative flex items-center">
                             <input type="text" value="${escapeHtml(savedNote)}" data-customer-id="${item.id}" placeholder="أضف ملاحظة..."
+                                oninput="handleNoteInput('${item.id}', this.value)"
                                 onchange="onNoteChanged('${item.id}', this.value)"
                                 class="w-full bg-slate-950/80 border border-slate-700/80 rounded-lg py-1 px-2 text-xs text-amber-300 placeholder-slate-600 focus:border-amber-400 outline-none transition">
                             <i data-note-status="${item.id}" class="fa-solid fa-cloud-arrow-up absolute left-2 text-[10px] text-slate-500 pointer-events-none" title="تزامن سحابي عبر Firestore"></i>
@@ -1222,7 +1260,21 @@
             `;
         }
 
+        function handleNoteInput(customerId, value) {
+            if (!customerId) return;
+            if (noteSaveTimers[customerId]) {
+                clearTimeout(noteSaveTimers[customerId]);
+            }
+            noteSaveTimers[customerId] = setTimeout(() => {
+                saveNoteToCloud(customerId, value);
+            }, 350);
+        }
+
         function onNoteChanged(customerId, value) {
+            if (!customerId) return;
+            if (noteSaveTimers[customerId]) {
+                clearTimeout(noteSaveTimers[customerId]);
+            }
             saveNoteToCloud(customerId, value);
         }
 
@@ -1523,6 +1575,8 @@
         // Expose functions to global window scope for inline event attributes
         window.handleLogin = handleLogin;
         window.logout = logout;
+        window.handleNoteInput = handleNoteInput;
+        window.onNoteChanged = onNoteChanged;
         window.registerWithEmailAndPassword = registerWithEmailAndPassword;
         window.loginWithEmailAndPassword = loginWithEmailAndPassword;
         window.onZoneChanged = onZoneChanged;
