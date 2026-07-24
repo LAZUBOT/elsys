@@ -482,7 +482,15 @@
     <!-- Firebase SDK Imports & Main Logic -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import {
+            getAuth,
+            createUserWithEmailAndPassword,
+            signInWithEmailAndPassword,
+            signOut,
+            signInAnonymously,
+            signInWithCustomToken,
+            onAuthStateChanged
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const API_BASE = 'https://admin.ftth.iq/api';
@@ -505,6 +513,7 @@
         const explicitFirebaseConfig = {
             apiKey: "AIzaSyC_X_XzwaBDY6TUNxE2hJzJHtClyXnA7ec",
             authDomain: "wzftth.firebaseapp.com",
+            databaseURL: "https://wzftth-default-rtdb.firebaseio.com",
             projectId: "wzftth",
             storageBucket: "wzftth.firebasestorage.app",
             messagingSenderId: "409016821583",
@@ -513,6 +522,7 @@
         };
 
         // Firebase Setup & Variables
+        let app = null;
         let firestore = null;
         let auth = null;
 
@@ -543,7 +553,9 @@
             }
 
             try {
-                const app = initializeApp(firebaseConfig);
+                if (!app) {
+                    app = initializeApp(firebaseConfig);
+                }
                 auth = getAuth(app);
                 firestore = getFirestore(app);
                 setFirebaseStatus('جارٍ الاتصال بـ Firebase...', 'info');
@@ -681,6 +693,16 @@
                 icon.classList.add('fa-solid', 'fa-cloud-arrow-up', 'text-slate-500');
                 icon.title = 'تزامن سحابي عبر Firestore';
             }
+        }
+
+        async function registerWithEmailAndPassword(email, password) {
+            if (!auth) await initFirebase();
+            return createUserWithEmailAndPassword(auth, email, password);
+        }
+
+        async function loginWithEmailAndPassword(email, password) {
+            if (!auth) await initFirebase();
+            return signInWithEmailAndPassword(auth, email, password);
         }
 
         async function handleLogin(e) {
@@ -1482,6 +1504,9 @@
         }
 
         function logout() {
+            if (auth) {
+                signOut(auth).catch(() => {});
+            }
             authToken = '';
             document.getElementById('mainHeader').classList.add('hidden');
             document.getElementById('dashboardView').classList.add('hidden');
@@ -1498,6 +1523,8 @@
         // Expose functions to global window scope for inline event attributes
         window.handleLogin = handleLogin;
         window.logout = logout;
+        window.registerWithEmailAndPassword = registerWithEmailAndPassword;
+        window.loginWithEmailAndPassword = loginWithEmailAndPassword;
         window.onZoneChanged = onZoneChanged;
         window.applyFacetedFilters = applyFacetedFilters;
         window.resetAllFilters = resetAllFilters;
