@@ -81,6 +81,10 @@
                         <span class="h-2 w-2 rounded-full bg-slate-500"></span>
                         <span>Firebase...</span>
                     </div>
+                    <div id="syncStatusBadge" class="hidden md:inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-800/80 px-2.5 py-1 text-[11px] font-semibold text-slate-300">
+                        <span class="h-2 w-2 rounded-full bg-slate-500"></span>
+                        <span>حالة المزامنة: غير محددة</span>
+                    </div>
 
                     <button onclick="openWalletModal()" title="اضغط لعرض رصيد المحفظة" class="flex items-center space-x-2 space-x-reverse bg-slate-800/80 hover:bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700/60 transition group cursor-pointer">
                         <div class="p-1.5 bg-amber-500/10 text-amber-400 rounded-md group-hover:bg-amber-500/20 transition">
@@ -660,6 +664,21 @@
             badge.innerHTML = `<span class="h-2 w-2 rounded-full ${type === 'success' ? 'bg-emerald-400' : type === 'warning' ? 'bg-amber-400' : 'bg-slate-500'}"></span><span>${escapeHtml(message)}</span>`;
         }
 
+        function setSyncStatus(message, type = 'info') {
+            const badge = document.getElementById('syncStatusBadge');
+            if (!badge) return;
+
+            const baseClasses = 'hidden md:inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[11px] font-semibold';
+            const typeClasses = {
+                success: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400',
+                warning: 'border-amber-500/20 bg-amber-500/10 text-amber-400',
+                info: 'border-slate-700 bg-slate-800/80 text-slate-300'
+            };
+
+            badge.className = `${baseClasses} ${typeClasses[type] || typeClasses.info}`;
+            badge.innerHTML = `<span class="h-2 w-2 rounded-full ${type === 'success' ? 'bg-emerald-400' : type === 'warning' ? 'bg-amber-400' : 'bg-slate-500'}"></span><span>${escapeHtml(message)}</span>`;
+        }
+
         async function initFirebase() {
             setFirebaseStatus('جارٍ الاتصال بـ Firebase...', 'info');
             try {
@@ -667,6 +686,7 @@
                 if (!ok) {
                     firebaseReady = false;
                     setFirebaseStatus('Firebase غير متاح - سيتم الاعتماد على التخزين المحلي', 'warning');
+                    setSyncStatus('المزامنة: محلية فقط', 'warning');
                     return;
                 }
 
@@ -676,6 +696,7 @@
 
                 firebaseReady = true;
                 setFirebaseStatus('Firestore متصل ومزامن', 'success');
+                setSyncStatus('المزامنة: سحابي', 'success');
 
                 window.firebaseSync.registerDataCallback((items) => {
                     fetchedCustomersData = items;
@@ -690,6 +711,7 @@
             } catch (e) {
                 firebaseReady = false;
                 setFirebaseStatus('Firebase غير متاح - سيتم الاعتماد على التخزين المحلي', 'warning');
+                setSyncStatus('المزامنة: محلية فقط', 'warning');
                 console.warn('Firebase init fallback:', e);
             }
         }
@@ -730,6 +752,7 @@
 
             if (!firestore || !firebaseReady) {
                 setFirebaseStatus('Firebase غير متاح - سيتم حفظ الملاحظات محليًا', 'warning');
+                setSyncStatus('المزامنة: محلية فقط', 'warning');
                 return;
             }
 
@@ -784,13 +807,20 @@
 
             setNoteSaveStatus(customerId, 'pending');
             try {
-                await window.firebaseSync.saveNoteToCloud(customerId, noteText);
-                setNoteSaveStatus(customerId, 'success');
-                showAlert('تم حفظ الملاحظة في Firestore بنجاح', 'success');
+                const synced = await window.firebaseSync.saveNoteToCloud(customerId, noteText);
+                if (synced) {
+                    setNoteSaveStatus(customerId, 'success');
+                    showAlert('تم حفظ الملاحظة في Firestore بنجاح', 'success');
+                } else {
+                    setNoteSaveStatus(customerId, 'error');
+                    setSyncStatus('المزامنة: محلية فقط', 'warning');
+                    showAlert('تم حفظ الملاحظة محليًا لأن Firestore يرفض الكتابة بسبب قواعد الأمان. يرجى تعديل قواعد Firestore.', 'warning');
+                }
             } catch (e) {
                 setNoteSaveStatus(customerId, 'error');
+                setSyncStatus('المزامنة: محلية فقط', 'warning');
                 console.warn('Firestore save error (saved locally):', e.message || e);
-                showAlert('فشل حفظ الملاحظة في Firestore، تم الاحتفاظ بها محلياً', 'error');
+                showAlert('تم حفظ الملاحظة محليًا لأن Firestore يرفض الكتابة بسبب قواعد الأمان. يرجى تعديل قواعد Firestore.', 'warning');
             }
         }
 

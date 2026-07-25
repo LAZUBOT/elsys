@@ -11,6 +11,7 @@ const firebaseSync = (() => {
   let userNotes = {};
   let fetchedCustomersData = [];
   let onDataUpdate = null;
+  let cloudWriteEnabled = true;
 
   const explicitFirebaseConfig = {
     apiKey: 'AIzaSyC_X_XzwaBDY6TUNxE2hJzJHtClyXnA7ec',
@@ -45,6 +46,16 @@ const firebaseSync = (() => {
 
   function getFirebaseHandles() {
     return { app, auth, firestore };
+  }
+
+  function isPermissionError(err) {
+    const message = `${err?.message || ''}`.toLowerCase();
+    const code = `${err?.code || ''}`.toLowerCase();
+    return code === 'permission-denied' || message.includes('permission') || message.includes('insufficient permissions');
+  }
+
+  function setCloudWriteState(enabled) {
+    cloudWriteEnabled = enabled;
   }
 
   async function initFirebase() {
@@ -134,6 +145,11 @@ const firebaseSync = (() => {
         fetchedCustomersData = items;
         if (onDataUpdate) onDataUpdate(items);
       }, (err) => {
+        if (isPermissionError(err)) {
+          setCloudWriteState(false);
+          console.warn('Firestore read blocked by security rules; using local cache only.', err);
+          return;
+        }
         console.warn('Firestore customer listener failed:', err);
       });
 
@@ -149,13 +165,18 @@ const firebaseSync = (() => {
       if (onDataUpdate) onDataUpdate(items);
       return items;
     } catch (err) {
-      console.warn('Failed to load customers from Firestore:', err);
+      if (isPermissionError(err)) {
+        setCloudWriteState(false);
+        console.warn('Firestore access blocked by security rules; using local cache only.', err);
+      } else {
+        console.warn('Failed to load customers from Firestore:', err);
+      }
       return null;
     }
   }
 
   async function syncCustomerRecordsToFirestore(customers, zoneId) {
-    if (!firestore || !firebaseReady || !currentAgentId || !Array.isArray(customers) || customers.length === 0) return;
+    if (!firestore || !firebaseReady || !currentAgentId || !Array.isArray(customers) || customers.length === 0) return false;
 
     try {
       const { doc, setDoc } = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js');
@@ -190,12 +211,20 @@ const firebaseSync = (() => {
         }, { merge: true });
       }));
     } catch (err) {
+      if (isPermissionError(err)) {
+        setCloudWriteState(false);
+        console.warn('Customer sync blocked by Firestore security rules; persisting locally only.', err);
+        return false;
+      }
       console.warn('Customer sync to Firestore failed:', err);
+      return false;
     }
+
+    return true;
   }
 
   async function saveNoteToCloud(customerId, noteText) {
-    if (!firestore || !firebaseReady || !currentAgentId || !customerId) return;
+    if (!firestore || !firebaseReady || !currentAgentId || !customerId) return false;
 
     userNotes[customerId] = noteText;
 
@@ -222,8 +251,16 @@ const firebaseSync = (() => {
         }, { merge: true })
       ]);
     } catch (err) {
+      if (isPermissionError(err)) {
+        setCloudWriteState(false);
+        console.warn('Note sync blocked by Firestore security rules; persisting locally only.', err);
+        return false;
+      }
       console.warn('Note sync to Firestore failed:', err);
+      return false;
     }
+
+    return true;
   }
 
   function setUserNotes(notes) {

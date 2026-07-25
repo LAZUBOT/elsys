@@ -27,3 +27,25 @@
 ## ملاحظات
 - إذا تعذر الاتصال بـ Firestore، يبقى التطبيق يعمل محليًا دون انهيار.
 - يتم حفظ نسخة محلية من الملاحظات في `localStorage`.
+
+## قواعد Firestore المطلوبة
+إذا ظهرت رسالة أن Firestore يرفض الكتابة، أضف هذه القواعد في Firebase Console > Firestore Database > Rules:
+
+يمكنك نسخها من الملف [firestore-rules.txt](firestore-rules.txt).
+
+```js
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
+```
+
+إذا أردت وضعًا أكثر أمانًا، استبدل السطر الأخير بـ:
+
+```js
+allow read, write: if request.auth != null && request.auth.uid == 'your-uid';
+```
