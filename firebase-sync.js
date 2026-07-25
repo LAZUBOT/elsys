@@ -59,7 +59,7 @@ const firebaseSync = (() => {
   }
 
   async function initFirebase() {
-    if (firebaseReady && app && firestore) return true;
+    if (firebaseReady && app && firestore && auth && auth.currentUser) return true;
 
     try {
       if (!app) {
@@ -72,13 +72,15 @@ const firebaseSync = (() => {
 
       auth = getAuth(app);
       firestore = getFirestore(app);
-
       firebaseReady = Boolean(app && firestore);
+
+      let authSuccess = false;
 
       await new Promise((resolve) => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
           unsubscribe();
           if (user) {
+            authSuccess = true;
             firebaseReady = true;
             resolve();
             return;
@@ -91,7 +93,7 @@ const firebaseSync = (() => {
                 await signInWithCustomToken(auth, window.__initial_auth_token);
                 signedIn = true;
               } catch (err) {
-                console.warn('Custom token auth failed, continuing with Firestore:', err);
+                console.warn('Custom token auth failed:', err);
               }
             }
             if (!signedIn) {
@@ -99,23 +101,31 @@ const firebaseSync = (() => {
                 await signInAnonymously(auth);
                 signedIn = true;
               } catch (err) {
-                console.warn('Anonymous auth unavailable, continuing with Firestore:', err);
+                console.warn('Anonymous auth unavailable:', err);
               }
             }
-            firebaseReady = true;
+            authSuccess = signedIn && Boolean(auth.currentUser);
+            firebaseReady = authSuccess && Boolean(firestore);
             resolve();
           } catch (err) {
-            firebaseReady = true;
+            authSuccess = false;
+            firebaseReady = false;
+            console.warn('Firebase auth failed:', err);
             resolve();
           }
-        }, () => resolve());
+        }, (error) => {
+          console.warn('Firebase auth state listener error:', error);
+          authSuccess = false;
+          firebaseReady = false;
+          resolve();
+        });
       });
 
-      return true;
+      return authSuccess && firebaseReady;
     } catch (err) {
-      firebaseReady = Boolean(app && firestore);
+      firebaseReady = false;
       console.warn('Firebase init warning:', err);
-      return Boolean(app && firestore);
+      return false;
     }
   }
 
