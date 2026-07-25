@@ -14,14 +14,13 @@ const firebaseSync = (() => {
   let cloudWriteEnabled = true;
 
   const explicitFirebaseConfig = {
-    apiKey: 'AIzaSyC_X_XzwaBDY6TUNxE2hJzJHtClyXnA7ec',
-    authDomain: 'wzftth.firebaseapp.com',
-    databaseURL: 'https://wzftth-default-rtdb.firebaseio.com',
-    projectId: 'wzftth',
-    storageBucket: 'wzftth.firebasestorage.app',
-    messagingSenderId: '409016821583',
-    appId: '1:409016821583:web:1e90e4266b21744b95c73a',
-    measurementId: 'G-TPM5E3M91B'
+    apiKey: "AIzaSyDvnEoWSLMx6phfgy5nlFNW5Y542HIIWRc",
+    authDomain: "testftth-43e82.firebaseapp.com",
+    projectId: "testftth-43e82",
+    storageBucket: "testftth-43e82.firebasestorage.app",
+    messagingSenderId: "453816684930",
+    appId: "1:453816684930:web:7d29397e5fcc808affff9b",
+    measurementId: "G-JH79R9L0FD"
   };
 
   function setContext(context) {
