@@ -491,9 +491,12 @@
         import { doc, setDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const API_BASE = 'https://admin.ftth.iq/api';
+        const AUTH_SESSION_STORAGE_KEY = 'ftth_auth_session_v1';
+        const AUTH_SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 7;
         let authToken = '';
         let currentAgentId = null;
         let currentAgentName = '';
+        let currentUsername = '';
         let fetchedCustomersData = [];
         let firebaseReady = false;
         let filteredCustomersData = [];
@@ -522,6 +525,125 @@
         let app = null;
         let firestore = null;
         let auth = null;
+
+        function saveSessionState(token, username = currentUsername, agentId = currentAgentId, agentName = currentAgentName) {
+            if (!token) {
+                localStorage.removeItem(AUTH_SESSION_STORAGE_KEY);
+                return null;
+            }
+
+            const sessionPayload = {
+                token,
+                username: username || '',
+                agentId: agentId || null,
+                agentName: agentName || '',
+                lastUpdated: new Date().toISOString(),
+                expiresAt: Date.now() + AUTH_SESSION_TTL_MS
+            };
+
+            localStorage.setItem(AUTH_SESSION_STORAGE_KEY, JSON.stringify(sessionPayload));
+            return sessionPayload;
+        }
+
+        function loadSessionState() {
+            try {
+                const raw = localStorage.getItem(AUTH_SESSION_STORAGE_KEY);
+                if (!raw) return null;
+
+                const parsed = JSON.parse(raw);
+                if (!parsed?.token) return null;
+                if (parsed.expiresAt && Date.now() > parsed.expiresAt) {
+                    localStorage.removeItem(AUTH_SESSION_STORAGE_KEY);
+                    return null;
+                }
+
+                return parsed;
+            } catch (err) {
+                localStorage.removeItem(AUTH_SESSION_STORAGE_KEY);
+                return null;
+            }
+        }
+
+        function clearSessionState() {
+            localStorage.removeItem(AUTH_SESSION_STORAGE_KEY);
+        }
+
+        async function persistSessionToFirestore(sessionPayload) {
+            if (!firestore || !firebaseReady || !sessionPayload?.token) return;
+
+            try {
+                const sessionId = sessionPayload.agentId ? `agent_${sessionPayload.agentId}` : `user_${(sessionPayload.username || 'anonymous').replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+                const sessionRef = doc(firestore, 'sessions', sessionId);
+                await setDoc(sessionRef, {
+                    sessionId,
+                    username: sessionPayload.username || '',
+                    agentId: sessionPayload.agentId || '',
+                    agentName: sessionPayload.agentName || '',
+                    token: sessionPayload.token,
+                    active: true,
+                    lastUpdated: new Date().toISOString(),
+                    source: 'web-app'
+                }, { merge: true });
+            } catch (err) {
+                console.warn('Session sync to Firestore failed:', err);
+            }
+        }
+
+        async function clearSessionFromFirestore() {
+            if (!firestore || !firebaseReady) return;
+            try {
+                const sessionId = currentAgentId ? `agent_${currentAgentId}` : `user_${(currentUsername || 'anonymous').replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+                const sessionRef = doc(firestore, 'sessions', sessionId);
+                await setDoc(sessionRef, {
+                    active: false,
+                    token: '',
+                    lastUpdated: new Date().toISOString(),
+                    source: 'web-app'
+                }, { merge: true });
+            } catch (err) {
+                console.warn('Session cleanup in Firestore failed:', err);
+            }
+        }
+
+        function showAuthenticatedUi() {
+            document.getElementById('loginView').classList.add('hidden');
+            document.getElementById('mainHeader').classList.remove('hidden');
+            document.getElementById('dashboardView').classList.remove('hidden');
+        }
+
+        function showLoginUi() {
+            document.getElementById('mainHeader').classList.add('hidden');
+            document.getElementById('dashboardView').classList.add('hidden');
+            document.getElementById('loginView').classList.remove('hidden');
+        }
+
+        async function restorePersistedSession() {
+            const storedSession = loadSessionState();
+            if (!storedSession?.token) return false;
+
+            authToken = storedSession.token;
+            currentUsername = storedSession.username || '';
+            currentAgentId = storedSession.agentId || null;
+            currentAgentName = storedSession.agentName || '';
+
+            document.getElementById('usernameInput').value = currentUsername;
+            document.getElementById('currentUserName').innerText = currentUsername;
+            document.getElementById('currentAgentName').innerText = currentAgentName || 'جاري التحديد...';
+            document.getElementById('currentAgentId').innerText = currentAgentId ? `ID: ${currentAgentId}` : 'ID: ---';
+
+            try {
+                await initFirebase();
+                window.firebaseSync.setContext({ agentId: currentAgentId, agentName: currentAgentName, zoneId: null });
+                showAuthenticatedUi();
+                await loadZones();
+                return true;
+            } catch (err) {
+                clearSessionState();
+                showLoginUi();
+                showAlert('انتهت الجلسة المخزنة أو تعذر استعادتها. يرجى تسجيل الدخول مرة أخرى', 'warning');
+                return false;
+            }
+        }
 
         function setFirebaseStatus(message, type = 'info') {
             const badge = document.getElementById('firebaseStatusBadge');
@@ -553,7 +675,7 @@
                 firestore = handles.firestore || null;
 
                 firebaseReady = true;
-                setFirebaseStatus('Firebase متصل', 'success');
+                setFirebaseStatus('Firestore متصل ومزامن', 'success');
 
                 window.firebaseSync.registerDataCallback((items) => {
                     fetchedCustomersData = items;
@@ -758,15 +880,18 @@
 
                 const data = await response.json();
                 authToken = data.access_token || data.token || data.id_token;
+                currentUsername = username;
 
                 await initFirebase();
+                const sessionPayload = saveSessionState(authToken, currentUsername);
+                if (sessionPayload) {
+                    await persistSessionToFirestore(sessionPayload);
+                }
 
-                document.getElementById('loginView').classList.add('hidden');
-                document.getElementById('mainHeader').classList.remove('hidden');
-                document.getElementById('dashboardView').classList.remove('hidden');
+                showAuthenticatedUi();
                 
                 const userEl = document.getElementById('currentUserName');
-                if (userEl) userEl.innerText = username;
+                if (userEl) userEl.innerText = currentUsername;
 
                 await loadZones();
 
@@ -797,6 +922,11 @@
                 currentAgentId = data.model?.self?.id || null;
                 currentAgentName = data.model?.self?.displayValue || 'غير معروف';
                 window.firebaseSync.setContext({ agentId: currentAgentId, agentName: currentAgentName, zoneId: null });
+
+                const sessionPayload = saveSessionState(authToken, currentUsername, currentAgentId, currentAgentName);
+                if (sessionPayload) {
+                    await persistSessionToFirestore(sessionPayload);
+                }
 
                 // Display agent info in header
                 document.getElementById('currentAgentName').innerText = currentAgentName;
@@ -1555,21 +1685,29 @@
                 .replace(/'/g, "&#039;");
         }
 
-        function logout() {
+        async function logout() {
             if (auth) {
                 signOut(auth).catch(() => {});
             }
+
+            await clearSessionFromFirestore();
             authToken = '';
-            document.getElementById('mainHeader').classList.add('hidden');
-            document.getElementById('dashboardView').classList.add('hidden');
-            document.getElementById('loginView').classList.remove('hidden');
+            currentAgentId = null;
+            currentAgentName = '';
+            currentUsername = '';
+            clearSessionState();
+            showLoginUi();
             document.getElementById('usernameInput').value = '';
             document.getElementById('passwordInput').value = '';
+            document.getElementById('currentAgentName').innerText = 'جاري التحديد...';
+            document.getElementById('currentAgentId').innerText = 'ID: ---';
+            document.getElementById('currentUserName').innerText = '';
         }
 
         // Initialize Firebase on DOM Load
         window.addEventListener('DOMContentLoaded', () => {
             initFirebase();
+            restorePersistedSession().catch(() => {});
         });
 
         // Expose functions to global window scope for inline event attributes

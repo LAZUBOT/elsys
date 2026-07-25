@@ -48,7 +48,7 @@ const firebaseSync = (() => {
   }
 
   async function initFirebase() {
-    if (firebaseReady && app && auth && firestore) return true;
+    if (firebaseReady && app && firestore) return true;
 
     try {
       if (!app) {
@@ -62,7 +62,9 @@ const firebaseSync = (() => {
       auth = getAuth(app);
       firestore = getFirestore(app);
 
-      await new Promise((resolve, reject) => {
+      firebaseReady = Boolean(app && firestore);
+
+      await new Promise((resolve) => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
           unsubscribe();
           if (user) {
@@ -78,26 +80,31 @@ const firebaseSync = (() => {
                 await signInWithCustomToken(auth, window.__initial_auth_token);
                 signedIn = true;
               } catch (err) {
-                console.warn('Custom token auth failed, using anonymous fallback:', err);
+                console.warn('Custom token auth failed, continuing with Firestore:', err);
               }
             }
             if (!signedIn) {
-              await signInAnonymously(auth);
+              try {
+                await signInAnonymously(auth);
+                signedIn = true;
+              } catch (err) {
+                console.warn('Anonymous auth unavailable, continuing with Firestore:', err);
+              }
             }
             firebaseReady = true;
             resolve();
           } catch (err) {
-            firebaseReady = false;
-            reject(err);
+            firebaseReady = true;
+            resolve();
           }
-        }, (err) => reject(err));
+        }, () => resolve());
       });
 
       return true;
     } catch (err) {
-      firebaseReady = false;
-      console.warn('Firebase init failed:', err);
-      return false;
+      firebaseReady = Boolean(app && firestore);
+      console.warn('Firebase init warning:', err);
+      return Boolean(app && firestore);
     }
   }
 
