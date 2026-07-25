@@ -100,7 +100,11 @@ const firebaseSync = (() => {
                 await signInAnonymously(auth);
                 signedIn = true;
               } catch (err) {
-                console.warn('Anonymous auth unavailable:', err);
+                if (`${err?.code || ''}`.toLowerCase() === 'auth/admin-restricted-operation') {
+                  console.warn('Anonymous auth is disabled for this Firebase project. Enable Anonymous Authentication in Firebase Console or use an authenticated session.', err);
+                } else {
+                  console.warn('Anonymous auth unavailable:', err);
+                }
               }
             }
             authSuccess = signedIn && Boolean(auth.currentUser);

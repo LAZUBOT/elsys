@@ -15,7 +15,8 @@
 - اتصال بالإنترنت
 - مشروع Firebase فعال
 - تمكين Firestore في Firebase Console
-- تفعيل Authentication (حتى لو تم استخدام Anonymous Auth كبديل)
+- تفعيل Authentication
+  - إذا كانت قواعد Firestore تعتمد على `request.auth != null`، فعليك تمكين Anonymous Authentication أو إعداد مصادقة بديلة
 
 ## التشغيل
 1. افتح المشروع من المتصفح.
