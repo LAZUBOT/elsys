@@ -266,7 +266,11 @@
         let subscriptionsData = [];
         let filteredSubscriptionsData = [];
 
-        const API_BASE = "https://ftth-proxy.wapi.workers.dev";
+        // Base API Configuration
+        // Pointing at the Cloudflare Worker proxy (see ftth-proxy/DEPLOY-CLOUDFLARE.md).
+        // After deploying the Worker, replace the URL below with your real
+        // Worker URL, e.g. "https://ftth-proxy.<your-subdomain>.workers.dev/api"
+        const API_BASE = "https://ftth.wathiq-iq.deno.net";
 
         // Initialize App on DOM Ready
         document.addEventListener('DOMContentLoaded', () => {
@@ -306,7 +310,7 @@
                 formData.append('username', usernameInput);
                 formData.append('password', passwordInput);
 
-                const response = await fetch(`${API_BASE}/api/auth/Contractor/token`, {
+                const response = await fetch(`${API_BASE}/auth/Contractor/token`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded',
@@ -443,7 +447,7 @@
                         'hierarchyLevel': '0'
                     });
 
-                    const response = await fetch(`${API_BASE}/api/subscriptions?${queryParams.toString()}`, {
+                    const response = await fetch(`${API_BASE}/subscriptions?${queryParams.toString()}`, {
                         method: 'GET',
                         headers: {
                             'Authorization': `Bearer ${token}`,
@@ -516,7 +520,7 @@
 
                     if (customerId) {
                         try {
-                            const custResponse = await fetch(`${API_BASE}/api/customers/${customerId}`, {
+                            const custResponse = await fetch(`${API_BASE}/customers/${customerId}`, {
                                 method: 'GET',
                                 headers: {
                                     'Authorization': `Bearer ${token}`,
