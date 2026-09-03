@@ -306,7 +306,7 @@
                 formData.append('username', usernameInput);
                 formData.append('password', passwordInput);
 
-                const response = await fetch(`${API_BASE}/auth/Contractor/token`, {
+                const response = await fetch(`${API_BASE}/api/auth/Contractor/token`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded',
@@ -443,7 +443,7 @@
                         'hierarchyLevel': '0'
                     });
 
-                    const response = await fetch(`${API_BASE}/subscriptions?${queryParams.toString()}`, {
+                    const response = await fetch(`${API_BASE}/api/subscriptions?${queryParams.toString()}`, {
                         method: 'GET',
                         headers: {
                             'Authorization': `Bearer ${token}`,
@@ -516,7 +516,7 @@
 
                     if (customerId) {
                         try {
-                            const custResponse = await fetch(`${API_BASE}/customers/${customerId}`, {
+                            const custResponse = await fetch(`${API_BASE}/api/customers/${customerId}`, {
                                 method: 'GET',
                                 headers: {
                                     'Authorization': `Bearer ${token}`,
