@@ -1,23 +1,24 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl" class="dark">
+<html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>منظومة إدارة والمشتركين FTTH</title>
+    <title>نظام إدارة الاشتراكات - FTTH</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <!-- Google Fonts Inter & Cairo -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- SheetJS (XLSX) library -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <!-- Google Fonts (Cairo) -->
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
-
     <script>
         tailwind.config = {
-            darkMode: 'class',
             theme: {
                 extend: {
+                    fontFamily: {
+                        sans: ['Cairo', 'sans-serif'],
+                    },
                     colors: {
                         brand: {
                             50: '#f0f7ff',
@@ -25,1750 +26,786 @@
                             500: '#0284c7',
                             600: '#0369a1',
                             700: '#075985',
-                            900: '#0c4a6e',
+                            800: '#0c4a6e',
                         }
-                    },
-                    fontFamily: {
-                        sans: ['Cairo', 'sans-serif'],
                     }
                 }
             }
         }
     </script>
-
-    <style>
-        body {
-            font-family: 'Cairo', sans-serif;
-            background-color: #0b0f19;
-            color: #f3f4f6;
-        }
-        /* Custom scrollbars */
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #111827;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #374151;
-            border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #4b5563;
-        }
-    </style>
 </head>
-<body class="min-h-screen flex flex-col justify-between selection:bg-brand-500 selection:text-white">
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col">
 
-    <header id="mainHeader" class="hidden bg-slate-900/90 backdrop-blur-md border-b border-slate-800 sticky top-0 z-40">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex items-center justify-between h-16">
-                <!-- App Title -->
-                <div class="flex items-center space-x-3 space-x-reverse">
-                    <div class="p-2 bg-brand-600/20 text-brand-500 rounded-xl border border-brand-500/30">
-                        <i class="fa-solid fa-network-wired text-xl"></i>
-                    </div>
-                    <div>
-                        <h1 class="text-lg font-bold text-white tracking-wide">منظومة المشتركين FTTH</h1>
-                        <p class="text-xs text-slate-400">لوحة المقاولين</p>
-                    </div>
+    <!-- Header / Navbar -->
+    <header class="bg-slate-900 text-white shadow-md border-b border-slate-800 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3 space-x-reverse">
+                <div class="w-10 h-10 rounded-xl bg-brand-500 flex items-center justify-center text-white font-bold text-xl shadow-lg">
+                    <i class="fa-solid font-bold fa-wifi"></i>
                 </div>
-
-                <!-- User Profile & Actions -->
-                <div class="flex items-center space-x-3 space-x-reverse">
-                    <div id="firebaseStatusBadge" class="hidden md:inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-800/80 px-2.5 py-1 text-[11px] font-semibold text-slate-300">
-                        <span class="h-2 w-2 rounded-full bg-slate-500"></span>
-                        <span>Firebase...</span>
-                    </div>
-                    <div id="syncStatusBadge" class="hidden md:inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-800/80 px-2.5 py-1 text-[11px] font-semibold text-slate-300">
-                        <span class="h-2 w-2 rounded-full bg-slate-500"></span>
-                        <span>حالة المزامنة: غير محددة</span>
-                    </div>
-
-                    <button onclick="openWalletModal()" title="اضغط لعرض رصيد المحفظة" class="flex items-center space-x-2 space-x-reverse bg-slate-800/80 hover:bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700/60 transition group cursor-pointer">
-                        <div class="p-1.5 bg-amber-500/10 text-amber-400 rounded-md group-hover:bg-amber-500/20 transition">
-                            <i class="fa-solid fa-wallet text-sm"></i>
-                        </div>
-                        <div class="text-right">
-                            <div class="flex items-center space-x-1 space-x-reverse">
-                                <span id="currentAgentName" class="text-xs font-semibold text-slate-200 block">جاري التحديد...</span>
-                                <span id="currentUserName" class="hidden"></span>
-                            </div>
-                            <span id="currentAgentId" class="text-[10px] text-slate-400 block font-mono">ID: ---</span>
-                        </div>
-                    </button>
-
-                    <button onclick="logout()" title="تسجيل الخروج" class="p-2 bg-rose-500/10 text-rose-400 hover:bg-rose-500 hover:text-white rounded-lg transition-all duration-200 text-sm border border-rose-500/20">
-                        <i class="fa-solid fa-right-from-bracket"></i>
-                        <span class="hidden md:inline mr-1 text-xs">خروج</span>
-                    </button>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight">إدارة اشتراكات FTTH</h1>
+                    <p class="text-xs text-slate-400">متابعة الاشتراكات المنتهية والقريبة من الانتهاء واستخراج التقارير</p>
                 </div>
+            </div>
+            <div id="userInfoSection" class="hidden flex items-center gap-4">
+                <span class="text-xs bg-slate-800 text-brand-500 px-3 py-1.5 rounded-full border border-slate-700 flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span id="loggedInUsername" class="font-semibold text-slate-200"></span>
+                </span>
+                <button onclick="logout()" class="text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-950/30 px-3 py-1.5 rounded-lg border border-rose-900/50 transition">
+                    <i class="fa-solid fa-right-from-bracket ml-1"></i> خروج
+                </button>
             </div>
         </div>
     </header>
 
-    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <!-- Main Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
-        <!-- Notification Alert Box -->
-        <div id="alertBox" class="hidden mb-6 p-4 rounded-xl text-sm font-medium border flex items-center justify-between transition-all duration-300">
-            <div class="flex items-center space-x-3 space-x-reverse">
-                <i id="alertIcon" class="fa-solid fa-info-circle text-lg"></i>
-                <span id="alertMessage"></span>
-            </div>
-            <button onclick="document.getElementById('alertBox').classList.add('hidden')" class="text-slate-400 hover:text-white">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
+        <!-- Notification Toast -->
+        <div id="toast" class="hidden fixed bottom-5 left-5 z-50 bg-slate-900 text-white px-5 py-3 rounded-xl shadow-2xl border border-slate-700 flex items-center gap-3 transition-all duration-300 transform translate-y-2">
+            <i id="toastIcon" class="fa-solid fa-circle-info text-brand-500 text-lg"></i>
+            <span id="toastMessage" class="text-sm font-medium"></span>
         </div>
 
-        <!-- 1. LOGIN SCREEN -->
-        <div id="loginView" class="max-w-md mx-auto my-12 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden p-8">
-            <div class="text-center mb-8">
-                <div class="inline-flex p-4 bg-brand-500/10 text-brand-500 rounded-2xl mb-3 border border-brand-500/20">
-                    <i class="fa-solid fa-shield-halved text-3xl"></i>
-                </div>
-                <h2 class="text-2xl font-bold text-white">تسجيل الدخول المنظومة</h2>
-                <p class="text-xs text-slate-400 mt-1">أدخل بيانات مقاول FTTH المعتمدة للوصول للوحة</p>
-            </div>
-
-            <form onsubmit="handleLogin(event)" class="space-y-5">
-                <div>
-                    <label class="block text-xs font-semibold text-slate-300 mb-1.5">اسم المستخدم (Username)</label>
-                    <div class="relative">
-                        <span class="absolute inset-y-0 right-0 flex items-center pr-3.5 pointer-events-none text-slate-500">
-                            <i class="fa-solid fa-user"></i>
-                        </span>
-                        <input type="text" id="usernameInput" required placeholder="أدخل اسم المستخدم"
-                            class="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 pr-10 pl-4 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition">
+        <!-- Section 1: LOGIN FORM -->
+        <section id="loginSection" class="max-w-md mx-auto my-12">
+            <div class="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden">
+                <div class="bg-gradient-to-r from-slate-900 to-slate-800 p-6 text-center text-white">
+                    <div class="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center mx-auto mb-3 backdrop-blur-sm">
+                        <i class="fa-solid fa-user-lock text-2xl text-brand-500"></i>
                     </div>
+                    <h2 class="text-xl font-bold">تسجيل الدخول للمقاولين</h2>
+                    <p class="text-xs text-slate-400 mt-1">قم بإدخال بيانات حسابك للوصول للنظام</p>
                 </div>
-
-                <div>
-                    <label class="block text-xs font-semibold text-slate-300 mb-1.5">كلمة المرور (Password)</label>
-                    <div class="relative">
-                        <span class="absolute inset-y-0 right-0 flex items-center pr-3.5 pointer-events-none text-slate-500">
-                            <i class="fa-solid fa-key"></i>
-                        </span>
-                        <input type="password" id="passwordInput" required placeholder="أدخل كلمة المرور"
-                            class="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 pr-10 pl-4 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition">
-                    </div>
-                </div>
-
-                <div id="loginError" class="hidden text-xs text-rose-400 bg-rose-500/10 p-3 rounded-lg border border-rose-500/20 flex items-center space-x-2 space-x-reverse">
-                    <i class="fa-solid fa-circle-exclamation"></i>
-                    <span id="loginErrorText">خطأ في الدخول</span>
-                </div>
-
-                <button type="submit" id="loginSubmitBtn" class="w-full bg-brand-600 hover:bg-brand-500 text-white font-semibold py-3 px-4 rounded-xl shadow-lg shadow-brand-600/20 transition-all duration-200 flex items-center justify-center space-x-2 space-x-reverse">
-                    <span>تسجيل الدخول</span>
-                    <i class="fa-solid fa-arrow-left text-xs"></i>
-                </button>
-            </form>
-        </div>
-
-        <!-- 2. DASHBOARD MAIN VIEW -->
-        <div id="dashboardView" class="hidden space-y-6">
-
-            <!-- Control Bar: Zone Select & Actions -->
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 md:p-6 flex flex-col md:flex-row items-center justify-between gap-4">
-                <div class="w-full md:w-auto flex flex-col sm:flex-row items-center gap-3">
-                    <div class="w-full sm:w-auto flex items-center space-x-2 space-x-reverse">
-                        <i class="fa-solid fa-map-location-dot text-brand-400 text-lg"></i>
-                        <label for="zoneSelect" class="text-sm font-semibold text-slate-300 whitespace-nowrap">المنطقة (Zone):</label>
-                    </div>
-                    <select id="zoneSelect" onchange="onZoneChanged(this.value)" disabled
-                        class="w-full sm:w-64 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:border-brand-500 outline-none transition cursor-pointer">
-                        <option value="">جاري جلب المناطق...</option>
-                    </select>
-                </div>
-
-                <div class="w-full md:w-auto flex items-center justify-end space-x-3 space-x-reverse">
-                    <button onclick="toggleFilterPanel()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold py-2 px-3.5 rounded-xl border border-slate-700/60 transition flex items-center space-x-2 space-x-reverse">
-                        <i class="fa-solid fa-filter text-brand-400"></i>
-                        <span>تصفية متقدمة</span>
-                        <span id="activeFilterBadge" class="hidden bg-brand-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">0</span>
-                    </button>
-
-                    <button onclick="exportToCSV()" class="bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 text-xs font-semibold py-2 px-3.5 rounded-xl border border-emerald-500/30 transition flex items-center space-x-2 space-x-reverse">
-                        <i class="fa-solid fa-file-excel"></i>
-                        <span>تصدير CSV</span>
-                    </button>
-                </div>
-            </div>
-
-            <!-- Faceted Search / Filter Panel (Collapsible) -->
-            <div id="filterPanel" class="hidden bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
-                <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-                    <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center space-x-2 space-x-reverse">
-                        <i class="fa-solid fa-sliders text-brand-400"></i>
-                        <span>خيارات التصفية المتعددة (Faceted Filters)</span>
-                    </h3>
-                    <button onclick="resetAllFilters()" class="text-xs text-brand-400 hover:text-brand-300 transition">
-                        إعادة ضبط الفلاتر
-                    </button>
-                </div>
-
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <!-- Search Input -->
-                    <div>
-                        <label class="block text-xs font-medium text-slate-400 mb-1">بحث شامل (اسم/هاتف/مستخدم/سيريال)</label>
-                        <input type="text" id="searchInput" oninput="applyFacetedFilters()" placeholder="اكتب للبحث..."
-                            class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white focus:border-brand-500 outline-none">
-                    </div>
-
-                    <!-- Status Filter -->
-                    <div>
-                        <label class="block text-xs font-medium text-slate-400 mb-1">حالة الاشتراك</label>
-                        <select id="statusFilter" onchange="applyFacetedFilters()"
-                            class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white focus:border-brand-500 outline-none">
-                            <option value="ALL">الكل</option>
-                            <option value="ACTIVE">نشط</option>
-                            <option value="EXPIRED">منتهي</option>
-                        </select>
-                    </div>
-
-                    <!-- ONT Vendor Filter -->
-                    <div>
-                        <label class="block text-xs font-medium text-slate-400 mb-1">نوع الجهاز (ONT Vendor)</label>
-                        <select id="vendorFilter" onchange="applyFacetedFilters()"
-                            class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white focus:border-brand-500 outline-none">
-                            <option value="ALL">جميع الشركات</option>
-                        </select>
-                    </div>
-
-                    <!-- Category Filter -->
-                    <div>
-                        <label class="block text-xs font-medium text-slate-400 mb-1">فئة الاشتراك</label>
-                        <select id="categoryFilter" onchange="applyFacetedFilters()"
-                            class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white focus:border-brand-500 outline-none">
-                            <option value="ALL">جميع الفئات</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Loader & Progress Bar -->
-            <div id="dataLoader" class="hidden bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center space-y-4">
-                <div class="inline-flex p-3 bg-brand-500/10 text-brand-400 rounded-full animate-bounce">
-                    <i class="fa-solid fa-spinner fa-spin text-2xl"></i>
-                </div>
-                <div>
-                    <h4 id="loaderTitle" class="text-sm font-semibold text-white">جاري جلب قائمة المشتركين والتفاصيل...</h4>
-                    <p id="loaderSubtitle" class="text-xs text-slate-400 mt-1">يرجى الانتظار لحين اكتمال الطلبات المتسلسلة</p>
-                </div>
-                <div class="max-w-md mx-auto bg-slate-950 rounded-full h-2 overflow-hidden border border-slate-800">
-                    <div id="progressBarFill" class="bg-brand-500 h-full w-0 transition-all duration-300"></div>
-                </div>
-            </div>
-
-            <!-- Customers Table View -->
-            <div id="tableContainer" class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
                 
-                <!-- Table Summary Bar -->
-                <div class="px-5 py-3 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400">
-                    <div class="flex items-center space-x-2 space-x-reverse">
-                        <span>إجمالي المشتركين في المنطقة:</span>
-                        <strong id="totalCountBadge" class="text-white font-bold bg-slate-800 px-2 py-0.5 rounded">0</strong>
+                <form id="loginForm" onsubmit="handleLogin(event)" class="p-6 space-y-5">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1.5">اسم المستخدم</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-slate-400">
+                                <i class="fa-solid fa-user"></i>
+                            </span>
+                            <input type="text" id="loginUsername" required class="w-full pr-10 pl-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition" placeholder="Username">
+                        </div>
                     </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1.5">كلمة المرور</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-slate-400">
+                                <i class="fa-solid fa-lock"></i>
+                            </span>
+                            <input type="password" id="loginPassword" required class="w-full pr-10 pl-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition" placeholder="••••••••">
+                        </div>
+                    </div>
+
+                    <div id="loginError" class="hidden bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-xl text-xs flex items-center gap-2">
+                        <i class="fa-solid fa-circle-exclamation text-rose-500 text-sm"></i>
+                        <span id="loginErrorText">فشل تسجيل الدخول. تحقق من اسم المستخدم وكلمة المرور.</span>
+                    </div>
+
+                    <button type="submit" id="btnLogin" class="w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-brand-500/30 transition flex items-center justify-center gap-2">
+                        <span>تسجيل الدخول</span>
+                        <i class="fa-solid fa-arrow-left"></i>
+                    </button>
+                </form>
+            </div>
+        </section>
+
+
+        <!-- Section 2: DASHBOARD & DATA FETCHING -->
+        <section id="dashboardSection" class="hidden space-y-6">
+            
+            <!-- Controls Card -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80">
+                <div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
                     
-                    <div class="flex items-center space-x-2 space-x-reverse">
-                        <span>النتائج المعروضة:</span>
-                        <strong id="filteredCountBadge" class="text-brand-400 font-bold bg-brand-500/10 px-2 py-0.5 rounded border border-brand-500/20">0</strong>
+                    <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 flex-1">
+                        <!-- Select Subscription Status -->
+                        <div class="sm:w-56">
+                            <label class="block text-xs font-bold text-slate-700 mb-1.5">حالة الاشتراك</label>
+                            <select id="subscriptionStatus" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 font-semibold text-slate-700">
+                                <option value="Expired">المنتهية اشتراكاتهم</option>
+                                <option value="Active">سوف ينتهون قريباً</option>
+                            </select>
+                        </div>
+
+                        <!-- Date Picker -->
+                        <div class="sm:w-56">
+                            <label class="block text-xs font-bold text-slate-700 mb-1.5">تاريخ الانتهاء</label>
+                            <input type="date" id="selectedDate" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+                        </div>
+
+                        <div class="flex items-end gap-2">
+                            <button onclick="fetchSubscriptions()" id="btnFetch" class="mt-auto bg-slate-900 hover:bg-slate-800 text-white font-bold py-2.5 px-6 rounded-xl transition shadow flex items-center justify-center gap-2 text-sm">
+                                <i class="fa-solid fa-magnifying-glass"></i>
+                                <span>جلب البيانات</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-3">
+                        <button onclick="exportToExcel()" id="btnExport" disabled class="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-2.5 px-5 rounded-xl transition shadow flex items-center justify-center gap-2 text-sm">
+                            <i class="fa-solid fa-file-excel text-base"></i>
+                            <span>تصدير إلى Excel (.xlsx)</span>
+                        </button>
                     </div>
                 </div>
 
-                <!-- Responsive Table Wrapper -->
-                <div class="overflow-x-auto">
-                    <table class="w-full text-right text-xs">
-                        <thead class="bg-slate-950/80 text-slate-400 font-semibold border-b border-slate-800 uppercase tracking-wider">
-                            <tr>
-                                <th class="p-3.5">المشترك والهاتف</th>
-                                <th class="p-3.5">اسم المستخدم (PPP)</th>
-                                <th class="p-3.5">السيريال نمبر</th>
-                                <th class="p-3.5">FDT / FAT</th>
-                                <th class="p-3.5">رمز و نوع ONT</th>
-                                <th class="p-3.5">قوة الإشارة (Rx Power)</th>
-                                <th class="p-3.5">فئة الاشتراك والانقضاء</th>
-                                <th class="p-3.5">الحالة</th>
-                                <th class="p-3.5">الملاحظات (سحابية)</th>
-                                <th class="p-3.5 text-center">الإجراءات</th>
+                <!-- Fetch Progress Bar -->
+                <div id="progressContainer" class="hidden mt-6 pt-4 border-t border-slate-100">
+                    <div class="flex justify-between items-center text-xs text-slate-600 font-semibold mb-2">
+                        <span id="progressStatus">جاري جلب قائمة الاشتراكات...</span>
+                        <span id="progressCount">0 / 0</span>
+                    </div>
+                    <div class="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                        <div id="progressBar" class="bg-brand-500 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stats & Quick Summary -->
+            <div id="statsContainer" class="hidden grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p id="statLabelTotal" class="text-xs text-slate-500 font-semibold mb-1">إجمالي الاشتراكات</p>
+                        <h3 id="statTotal" class="text-2xl font-bold text-slate-800">0</h3>
+                    </div>
+                    <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-users"></i>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-xs text-slate-500 font-semibold mb-1">أرقام الهواتف التي تم جلبها</p>
+                        <h3 id="statMobiles" class="text-2xl font-bold text-emerald-600">0</h3>
+                    </div>
+                    <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-phone"></i>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-xs text-slate-500 font-semibold mb-1">التاريخ المحدد</p>
+                        <h3 id="statDate" class="text-lg font-bold text-brand-600 font-mono">-</h3>
+                    </div>
+                    <div class="w-12 h-12 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-calendar-day"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Search and Filter Bar -->
+            <div id="tableControls" class="hidden bg-white p-4 rounded-2xl border border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-3">
+                <div class="relative w-full sm:w-80">
+                    <span class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-slate-400">
+                        <i class="fa-solid fa-search"></i>
+                    </span>
+                    <input type="text" id="searchInput" oninput="filterTable()" placeholder="بحث باسم المشترك، الايدي، المنطقه، رقم الهاتف..." class="w-full pr-10 pl-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-brand-500">
+                </div>
+                <div class="text-xs text-slate-500 font-semibold">
+                    عرض <span id="filteredCount">0</span> من أصل <span id="totalResultsCount">0</span> سجل
+                </div>
+            </div>
+
+            <!-- Data Table -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div class="overflow-x-auto min-h-[300px]">
+                    <table class="w-full text-right border-collapse">
+                        <thead>
+                            <tr class="bg-slate-900 text-white text-xs uppercase font-bold tracking-wider">
+                                <th class="p-4 border-b border-slate-800">#</th>
+                                <th class="p-4 border-b border-slate-800">اسم المشترك</th>
+                                <th class="p-4 border-b border-slate-800">الأيدي (Customer ID)</th>
+                                <th class="p-4 border-b border-slate-800">اسم المستخدم (Username)</th>
+                                <th class="p-4 border-b border-slate-800">المنطقة (Zone ID)</th>
+                                <th class="p-4 border-b border-slate-800">رقم الهاتف</th>
+                                <th class="p-4 border-b border-slate-800">تاريخ الاشتراك</th>
+                                <th class="p-4 border-b border-slate-800">تاريخ الانتهاء</th>
+                                <th class="p-4 border-b border-slate-800">مدة الالتزام</th>
                             </tr>
                         </thead>
-                        <tbody id="customersTableBody" class="divide-y divide-slate-800/60 text-slate-300">
-                            <tr>
-                                <td colspan="10" class="p-8 text-center text-slate-500">
-                                    <i class="fa-solid fa-arrow-up text-xl mb-2 block text-slate-600"></i>
-                                    يرجى اختيار منطقة من القائمة أعلاه لبدء التحميل
+                        <tbody id="tableBody" class="divide-y divide-slate-100 text-xs">
+                            <!-- Empty State -->
+                            <tr id="emptyRow">
+                                <td colspan="9" class="p-12 text-center text-slate-400">
+                                    <div class="flex flex-col items-center gap-3">
+                                        <i class="fa-solid fa-inbox text-4xl text-slate-300"></i>
+                                        <p class="font-medium text-sm">لا توجد بيانات معروضة. قم باختيار الحالة والتاريخ وضغط زر الجلب.</p>
+                                    </div>
                                 </td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
-
-                <!-- Pagination Control Footer -->
-                <div id="paginationBar" class="px-5 py-3 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-950/50">
-                    <!-- Items per page & Stats -->
-                    <div class="flex items-center space-x-3 space-x-reverse text-xs text-slate-400">
-                        <span>عرض في الصفحة:</span>
-                        <select id="pageSizeSelect" onchange="onPageSizeChange()"
-                            class="bg-slate-900 border border-slate-800 text-white rounded-lg px-2 py-1 focus:outline-none">
-                            <option value="10">10</option>
-                            <option value="25">25</option>
-                            <option value="50" selected>50</option>
-                            <option value="100">100</option>
-                        </select>
-                        <span id="pageStatsText">عرض 0-0 من أصل 0</span>
-                    </div>
-
-                    <!-- Pagination Navigation Controls -->
-                    <div class="flex items-center space-x-1 space-x-reverse" id="paginationControls">
-                        <button onclick="goToFirstPage()" title="الصفحة الأولى" class="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs border border-slate-700/60">
-                            <i class="fa-solid fa-angles-right"></i>
-                        </button>
-                        <button onclick="goToPrevPage()" title="السابق" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs border border-slate-700/60">
-                            <i class="fa-solid fa-angle-right"></i>
-                        </button>
-
-                        <div id="pageNumbersContainer" class="flex items-center space-x-1 space-x-reverse px-2">
-                            <!-- Dynamic Page Buttons -->
-                        </div>
-
-                        <button onclick="goToNextPage()" title="التالي" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs border border-slate-700/60">
-                            <i class="fa-solid fa-angle-left"></i>
-                        </button>
-                        <button onclick="goToLastPage()" title="الصفحة الأخيرة" class="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs border border-slate-700/60">
-                            <i class="fa-solid fa-angles-left"></i>
-                        </button>
-                    </div>
-                </div>
-
             </div>
 
-        </div>
+        </section>
 
     </main>
 
-    <!-- CUSTOMER DETAILS MODAL -->
-    <div id="customerModal" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 space-y-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
-            <div class="flex items-center justify-between border-b border-slate-800 pb-4">
-                <div class="flex items-center space-x-3 space-x-reverse">
-                    <div class="p-2.5 bg-brand-500/10 text-brand-400 rounded-xl">
-                        <i class="fa-solid fa-address-card text-xl"></i>
-                    </div>
-                    <div>
-                        <h3 id="modalCustomerName" class="text-base font-bold text-white">تفاصيل المشترك</h3>
-                        <p id="modalCustomerId" class="text-xs text-slate-400">ID: ---</p>
-                    </div>
-                </div>
-                <button onclick="closeModal()" class="text-slate-400 hover:text-white p-2">
-                    <i class="fa-solid fa-xmark text-lg"></i>
-                </button>
-            </div>
-
-            <!-- Grid Details -->
-            <div id="modalDetailsGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                <!-- Dynamic Content injected by JS -->
-            </div>
-
-            <!-- Actions Footer -->
-            <div class="flex items-center justify-between border-t border-slate-800 pt-4">
-                <button onclick="copyModalData()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-xl text-xs flex items-center space-x-2 space-x-reverse border border-slate-700/60">
-                    <i class="fa-solid fa-copy text-brand-400"></i>
-                    <span>نسخ التفاصيل</span>
-                </button>
-                <button onclick="closeModal()" class="bg-brand-600 hover:bg-brand-500 text-white px-5 py-2 rounded-xl text-xs font-semibold">
-                    إغلاق
-                </button>
-            </div>
+    <!-- Footer -->
+    <footer class="bg-slate-900 text-slate-400 border-t border-slate-800 py-4 mt-auto">
+        <div class="max-w-7xl mx-auto px-4 text-center text-xs flex flex-col sm:flex-row items-center justify-center gap-2">
+            <span>تمت برمجة هذه الأداة عن طريق WApi</span>
+            <span class="hidden sm:inline text-slate-600">•</span>
+            <a href="https://t.me/apiwapi" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 text-brand-400 hover:text-brand-300 font-semibold dir-ltr transition">
+                <i class="fa-brands fa-telegram text-sm text-sky-400"></i>
+            </a>
         </div>
-    </div>
-
-    <!-- OFFERS / CALCULATE PRICE MODAL -->
-    <div id="offersModal" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 space-y-5 shadow-2xl relative">
-            <div class="flex items-center justify-between border-b border-slate-800 pb-4">
-                <div class="flex items-center space-x-3 space-x-reverse">
-                    <div class="p-2.5 bg-amber-500/10 text-amber-400 rounded-xl">
-                        <i class="fa-solid fa-tags text-xl"></i>
-                    </div>
-                    <div>
-                        <h3 class="text-base font-bold text-white">حاسبة العروض والأسعار</h3>
-                        <p id="offersDeviceSubId" class="text-xs text-slate-400">ID الجهاز: ---</p>
-                    </div>
-                </div>
-                <button onclick="closeOffersModal()" class="text-slate-400 hover:text-white p-2">
-                    <i class="fa-solid fa-xmark text-lg"></i>
-                </button>
-            </div>
-
-            <!-- Dynamic Offer Options Selection -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                <div>
-                    <label class="block text-xs font-semibold text-slate-300 mb-1.5">فئة الاشتراك (السرعة)</label>
-                    <select id="offerSpeedSelect" onchange="calculateOfferPrice()"
-                        class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:border-amber-400 outline-none transition cursor-pointer">
-                        <option value="FIBER 35" selected>FIBER 35</option>
-                        <option value="FIBER 50">FIBER 50</option>
-                        <option value="FIBER 75">FIBER 75</option>
-                        <option value="FIBER 150">FIBER 150</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-slate-300 mb-1.5">فترة الالتزام</label>
-                    <select id="offerCommitmentSelect" onchange="calculateOfferPrice()"
-                        class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:border-amber-400 outline-none transition cursor-pointer">
-                        <option value="1">1 شهر</option>
-                        <option value="2">2 شهر</option>
-                        <option value="3" selected>3 أشهر</option>
-                        <option value="6">6 أشهر</option>
-                        <option value="12">12 شهر</option>
-                    </select>
-                </div>
-            </div>
-
-            <div id="offersContent" class="space-y-4">
-                <div class="text-center py-6">
-                    <i class="fa-solid fa-spinner fa-spin text-2xl text-amber-400"></i>
-                    <p class="text-xs text-slate-400 mt-2">جاري استعلام العروض المتاحة وحساب السعر...</p>
-                </div>
-            </div>
-
-            <div class="border-t border-slate-800 pt-4 flex justify-end">
-                <button onclick="closeOffersModal()" class="bg-slate-800 hover:bg-slate-700 text-white px-5 py-2 rounded-xl text-xs font-semibold">
-                    إغلاق
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- AGENT WALLET BALANCE MODAL -->
-    <div id="walletModal" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 space-y-5 shadow-2xl relative">
-            <div class="flex items-center justify-between border-b border-slate-800 pb-4">
-                <div class="flex items-center space-x-3 space-x-reverse">
-                    <div class="p-2.5 bg-amber-500/10 text-amber-400 rounded-xl border border-amber-500/20">
-                        <i class="fa-solid fa-wallet text-xl"></i>
-                    </div>
-                    <div>
-                        <h3 id="modalWalletAgentName" class="text-base font-bold text-white">محفظة الوكيل</h3>
-                        <p id="modalWalletAgentId" class="text-xs text-slate-400 font-mono">ID: ---</p>
-                    </div>
-                </div>
-                <button onclick="closeWalletModal()" class="text-slate-400 hover:text-white p-2">
-                    <i class="fa-solid fa-xmark text-lg"></i>
-                </button>
-            </div>
-
-            <div id="walletContent" class="space-y-4">
-                <div class="text-center py-6">
-                    <i class="fa-solid fa-spinner fa-spin text-2xl text-amber-400"></i>
-                    <p class="text-xs text-slate-400 mt-2">جاري جلب بيانات المحفظة والرصيد...</p>
-                </div>
-            </div>
-
-            <div class="border-t border-slate-800 pt-4 flex justify-between items-center">
-                <button onclick="fetchWalletBalance()" class="bg-slate-800 hover:bg-slate-700 text-amber-400 px-3 py-1.5 rounded-xl text-xs flex items-center space-x-1.5 space-x-reverse border border-slate-700/60 transition">
-                    <i class="fa-solid fa-rotate-right"></i>
-                    <span>تحديث الرصيد</span>
-                </button>
-                <button onclick="closeWalletModal()" class="bg-brand-600 hover:bg-brand-500 text-white px-5 py-2 rounded-xl text-xs font-semibold">
-                    إغلاق
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <footer class="text-center py-4 text-xs text-slate-600 border-t border-slate-900">
-        منظومة إدارة الكوابل والمشتركين FTTH - 2026
     </footer>
 
-    <script src="firebase-sync.js"></script>
+    <!-- Application Logic -->
+    <script>
+        // Global Application State
+        let token = null;
+        let subscriptionsData = [];
+        let filteredSubscriptionsData = [];
 
-    <!-- Firebase SDK Imports & Main Logic -->
-    <script type="module">
-        import {
-            createUserWithEmailAndPassword,
-            signInWithEmailAndPassword,
-            signOut
-        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { doc, setDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        // Base API Configuration
+        // Pointing at the Cloudflare Worker proxy (see ftth-proxy/DEPLOY-CLOUDFLARE.md).
+        // After deploying the Worker, replace the URL below with your real
+        // Worker URL, e.g. "https://ftth-proxy.<your-subdomain>.workers.dev/api"
+        const API_BASE = "https://ftth-proxy.wapi.workers.dev/api";
 
-        const API_BASE = 'https://admin.ftth.iq/api';
-        const AUTH_SESSION_STORAGE_KEY = 'ftth_auth_session_v1';
-        const AUTH_SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 7;
-        let authToken = '';
-        let currentAgentId = null;
-        let currentAgentName = '';
-        let currentUsername = '';
-        let fetchedCustomersData = [];
-        let firebaseReady = false;
-        let filteredCustomersData = [];
-        let currentOfferDeviceId = null;
-        
-        // Cloud-synced user notes dictionary (customerId -> Note)
-        let userNotes = {};
+        // Initialize App on DOM Ready
+        document.addEventListener('DOMContentLoaded', () => {
+            // Set default date picker value to today
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('selectedDate').value = today;
 
-        // Pagination State
-        window.currentPage = 1;
-        let pageSize = 50;
-
-        // Firebase Direct Configuration
-        const explicitFirebaseConfig = {
-            apiKey: "AIzaSyC_X_XzwaBDY6TUNxE2hJzJHtClyXnA7ec",
-            authDomain: "wzftth.firebaseapp.com",
-            databaseURL: "https://wzftth-default-rtdb.firebaseio.com",
-            projectId: "wzftth",
-            storageBucket: "wzftth.firebasestorage.app",
-            messagingSenderId: "409016821583",
-            appId: "1:409016821583:web:1e90e4266b21744b95c73a",
-            measurementId: "G-TPM5E3M91B"
-        };
-
-        // Firebase Setup & Variables
-        let app = null;
-        let firestore = null;
-        let auth = null;
-
-        function saveSessionState(token, username = currentUsername, agentId = currentAgentId, agentName = currentAgentName) {
-            if (!token) {
-                localStorage.removeItem(AUTH_SESSION_STORAGE_KEY);
-                return null;
+            // Check if saved token exists in session
+            const savedToken = sessionStorage.getItem('ftth_token');
+            const savedUser = sessionStorage.getItem('ftth_username');
+            if (savedToken && savedUser) {
+                token = savedToken;
+                showDashboard(savedUser);
             }
+        });
 
-            const sessionPayload = {
-                token,
-                username: username || '',
-                agentId: agentId || null,
-                agentName: agentName || '',
-                lastUpdated: new Date().toISOString(),
-                expiresAt: Date.now() + AUTH_SESSION_TTL_MS
-            };
-
-            localStorage.setItem(AUTH_SESSION_STORAGE_KEY, JSON.stringify(sessionPayload));
-            return sessionPayload;
-        }
-
-        function loadSessionState() {
-            try {
-                const raw = localStorage.getItem(AUTH_SESSION_STORAGE_KEY);
-                if (!raw) return null;
-
-                const parsed = JSON.parse(raw);
-                if (!parsed?.token) return null;
-                if (parsed.expiresAt && Date.now() > parsed.expiresAt) {
-                    localStorage.removeItem(AUTH_SESSION_STORAGE_KEY);
-                    return null;
-                }
-
-                return parsed;
-            } catch (err) {
-                localStorage.removeItem(AUTH_SESSION_STORAGE_KEY);
-                return null;
-            }
-        }
-
-        function clearSessionState() {
-            localStorage.removeItem(AUTH_SESSION_STORAGE_KEY);
-        }
-
-        async function persistSessionToFirestore(sessionPayload) {
-            if (!firestore || !firebaseReady || !sessionPayload?.token) return;
-
-            try {
-                const sessionId = sessionPayload.agentId ? `agent_${sessionPayload.agentId}` : `user_${(sessionPayload.username || 'anonymous').replace(/[^a-zA-Z0-9_-]/g, '_')}`;
-                const sessionRef = doc(firestore, 'sessions', sessionId);
-                await setDoc(sessionRef, {
-                    sessionId,
-                    username: sessionPayload.username || '',
-                    agentId: sessionPayload.agentId || '',
-                    agentName: sessionPayload.agentName || '',
-                    token: sessionPayload.token,
-                    active: true,
-                    lastUpdated: new Date().toISOString(),
-                    source: 'web-app'
-                }, { merge: true });
-            } catch (err) {
-                console.warn('Session sync to Firestore failed:', err);
-            }
-        }
-
-        async function clearSessionFromFirestore() {
-            if (!firestore || !firebaseReady) return;
-            try {
-                const sessionId = currentAgentId ? `agent_${currentAgentId}` : `user_${(currentUsername || 'anonymous').replace(/[^a-zA-Z0-9_-]/g, '_')}`;
-                const sessionRef = doc(firestore, 'sessions', sessionId);
-                await setDoc(sessionRef, {
-                    active: false,
-                    token: '',
-                    lastUpdated: new Date().toISOString(),
-                    source: 'web-app'
-                }, { merge: true });
-            } catch (err) {
-                console.warn('Session cleanup in Firestore failed:', err);
-            }
-        }
-
-        function showAuthenticatedUi() {
-            document.getElementById('loginView').classList.add('hidden');
-            document.getElementById('mainHeader').classList.remove('hidden');
-            document.getElementById('dashboardView').classList.remove('hidden');
-        }
-
-        function showLoginUi() {
-            document.getElementById('mainHeader').classList.add('hidden');
-            document.getElementById('dashboardView').classList.add('hidden');
-            document.getElementById('loginView').classList.remove('hidden');
-        }
-
-        async function restorePersistedSession() {
-            const storedSession = loadSessionState();
-            if (!storedSession?.token) return false;
-
-            authToken = storedSession.token;
-            currentUsername = storedSession.username || '';
-            currentAgentId = storedSession.agentId || null;
-            currentAgentName = storedSession.agentName || '';
-
-            document.getElementById('usernameInput').value = currentUsername;
-            document.getElementById('currentUserName').innerText = currentUsername;
-            document.getElementById('currentAgentName').innerText = currentAgentName || 'جاري التحديد...';
-            document.getElementById('currentAgentId').innerText = currentAgentId ? `ID: ${currentAgentId}` : 'ID: ---';
-
-            try {
-                await initFirebase();
-                window.firebaseSync.setContext({ agentId: currentAgentId, agentName: currentAgentName, zoneId: null });
-                showAuthenticatedUi();
-                await loadZones();
-                return true;
-            } catch (err) {
-                clearSessionState();
-                showLoginUi();
-                showAlert('انتهت الجلسة المخزنة أو تعذر استعادتها. يرجى تسجيل الدخول مرة أخرى', 'warning');
-                return false;
-            }
-        }
-
-        function setFirebaseStatus(message, type = 'info') {
-            const badge = document.getElementById('firebaseStatusBadge');
-            if (!badge) return;
-
-            const baseClasses = 'hidden md:inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[11px] font-semibold';
-            const typeClasses = {
-                success: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400',
-                warning: 'border-amber-500/20 bg-amber-500/10 text-amber-400',
-                info: 'border-slate-700 bg-slate-800/80 text-slate-300'
-            };
-
-            badge.className = `${baseClasses} ${typeClasses[type] || typeClasses.info}`;
-            badge.innerHTML = `<span class="h-2 w-2 rounded-full ${type === 'success' ? 'bg-emerald-400' : type === 'warning' ? 'bg-amber-400' : 'bg-slate-500'}"></span><span>${escapeHtml(message)}</span>`;
-        }
-
-        function setSyncStatus(message, type = 'info') {
-            const badge = document.getElementById('syncStatusBadge');
-            if (!badge) return;
-
-            const baseClasses = 'hidden md:inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[11px] font-semibold';
-            const typeClasses = {
-                success: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400',
-                warning: 'border-amber-500/20 bg-amber-500/10 text-amber-400',
-                info: 'border-slate-700 bg-slate-800/80 text-slate-300'
-            };
-
-            badge.className = `${baseClasses} ${typeClasses[type] || typeClasses.info}`;
-            badge.innerHTML = `<span class="h-2 w-2 rounded-full ${type === 'success' ? 'bg-emerald-400' : type === 'warning' ? 'bg-amber-400' : 'bg-slate-500'}"></span><span>${escapeHtml(message)}</span>`;
-        }
-
-        async function initFirebase() {
-            setFirebaseStatus('جارٍ الاتصال بـ Firebase...', 'info');
-            try {
-                const ok = await window.firebaseSync.initFirebase();
-                if (!ok) {
-                    firebaseReady = false;
-                    setFirebaseStatus('Firebase غير متاح - سيتم الاعتماد على التخزين المحلي', 'warning');
-                    setSyncStatus('المزامنة: محلية فقط', 'warning');
-                    return;
-                }
-
-                const handles = window.firebaseSync.getFirebaseHandles();
-                auth = handles.auth || null;
-                firestore = handles.firestore || null;
-
-                firebaseReady = true;
-                setFirebaseStatus('Firestore متصل ومزامن', 'success');
-                setSyncStatus('المزامنة: سحابي', 'success');
-
-                window.firebaseSync.registerDataCallback((items) => {
-                    fetchedCustomersData = items;
-                    filteredCustomersData = items;
-                    populateFilterDropdowns();
-                    applyFacetedFilters();
-                });
-
-                if (currentAgentId) {
-                    setupNotesSyncForAgent(currentAgentId);
-                }
-            } catch (e) {
-                firebaseReady = false;
-                setFirebaseStatus('Firebase غير متاح - سيتم الاعتماد على التخزين المحلي', 'warning');
-                setSyncStatus('المزامنة: محلية فقط', 'warning');
-                console.warn('Firebase init fallback:', e);
-            }
-        }
-
-        function getNotesCollectionRef(agentId) {
-            if (!firestore || !agentId) return null;
-            return collection(firestore, 'notes', String(agentId), 'customerNotes');
-        }
-
-        function getNoteDocRef(agentId, customerId) {
-            if (!firestore || !agentId || !customerId) return null;
-            return doc(firestore, 'notes', String(agentId), 'customerNotes', String(customerId));
-        }
-
-        function applyCloudNotesToInputs() {
-            Object.entries(userNotes).forEach(([customerId, noteText]) => {
-                if (!customerId || typeof noteText !== 'string') return;
-                const noteInput = document.querySelector(`input[data-customer-id="${customerId}"]`);
-                if (noteInput && document.activeElement !== noteInput) {
-                    noteInput.value = noteText;
-                }
-            });
-        }
-
-        function setupNotesSyncForAgent(agentId) {
-            if (!agentId) return;
-
-            const localKey = `ftth_notes_agent_${agentId}`;
-            const localNotes = localStorage.getItem(localKey);
-            if (localNotes) {
-                try {
-                    userNotes = { ...userNotes, ...JSON.parse(localNotes) };
-                    applyCloudNotesToInputs();
-                } catch (e) {
-                    console.warn('Failed to restore local notes backup:', e);
-                }
-            }
-
-            if (!firestore || !firebaseReady) {
-                setFirebaseStatus('Firebase غير متاح - سيتم حفظ الملاحظات محليًا', 'warning');
-                setSyncStatus('المزامنة: محلية فقط', 'warning');
-                return;
-            }
-
-            try {
-                const notesCollection = getNotesCollectionRef(agentId);
-                if (!notesCollection) return;
-
-                onSnapshot(notesCollection, (snapshot) => {
-                    const mergedNotes = {};
-                    snapshot.forEach((docItem) => {
-                        const customerId = docItem.id;
-                        const data = docItem.data() || {};
-                        const noteText = typeof data?.note === 'string' ? data.note : '';
-                        if (noteText) {
-                            mergedNotes[customerId] = noteText;
-                        }
-                    });
-
-                    userNotes = { ...userNotes, ...mergedNotes };
-                    applyCloudNotesToInputs();
-                    localStorage.setItem(localKey, JSON.stringify(userNotes));
-                    setFirebaseStatus('Firestore متصل ومزامن', 'success');
-                }, (error) => {
-                    console.warn('Firestore sync notice (operating with local cache):', error.message || error);
-                });
-            } catch (err) {
-                console.warn('Firestore listener fallback:', err);
-            }
-        }
-
-        let noteSaveTimers = {};
-
-        async function saveNoteToCloud(customerId, noteText) {
-            if (!customerId) return;
-            userNotes[customerId] = noteText;
-
-            const customerRecord = fetchedCustomersData.find((item) => String(item.id) === String(customerId));
-            if (customerRecord) {
-                customerRecord.note = noteText;
-            }
-
-            if (currentAgentId) {
-                const localKey = `ftth_notes_agent_${currentAgentId}`;
-                localStorage.setItem(localKey, JSON.stringify(userNotes));
-            }
-
-            if (!firebaseReady) {
-                setNoteSaveStatus(customerId, 'error');
-                showAlert('Firebase غير جاهز حالياً، تم الاحتفاظ بالملاحظة محلياً', 'warning');
-                return;
-            }
-
-            setNoteSaveStatus(customerId, 'pending');
-            try {
-                const synced = await window.firebaseSync.saveNoteToCloud(customerId, noteText);
-                if (synced) {
-                    setNoteSaveStatus(customerId, 'success');
-                    showAlert('تم حفظ الملاحظة في Firestore بنجاح', 'success');
-                } else {
-                    setNoteSaveStatus(customerId, 'error');
-                    setSyncStatus('المزامنة: محلية فقط', 'warning');
-                    showAlert('تم حفظ الملاحظة محليًا لأن Firestore يرفض الكتابة بسبب قواعد الأمان. يرجى تعديل قواعد Firestore.', 'warning');
-                }
-            } catch (e) {
-                setNoteSaveStatus(customerId, 'error');
-                setSyncStatus('المزامنة: محلية فقط', 'warning');
-                console.warn('Firestore save error (saved locally):', e.message || e);
-                showAlert('تم حفظ الملاحظة محليًا لأن Firestore يرفض الكتابة بسبب قواعد الأمان. يرجى تعديل قواعد Firestore.', 'warning');
-            }
-        }
-
-        async function syncCustomerRecordsToFirestore(customers, zoneId) {
-            if (!firebaseReady || !Array.isArray(customers) || customers.length === 0) {
-                return;
-            }
-            return window.firebaseSync.syncCustomerRecordsToFirestore(customers, zoneId);
-        }
-
-        async function syncAgentProfileToFirestore() {
-            if (!firestore || !currentAgentId || !firebaseReady) return;
-
-            try {
-                const profileRef = doc(firestore, 'agents', String(currentAgentId));
-                await setDoc(profileRef, {
-                    agentId: String(currentAgentId),
-                    name: currentAgentName || '',
-                    updatedAt: new Date().toISOString(),
-                    source: 'web-app'
-                }, { merge: true });
-            } catch (err) {
-                console.warn('Agent profile sync failed:', err);
-            }
-        }
-
-        function setNoteSaveStatus(customerId, status) {
-            const icon = document.querySelector(`i[data-note-status="${customerId}"]`);
-            if (!icon) return;
-
-            icon.className = 'absolute left-2 text-[10px] pointer-events-none';
-            if (status === 'pending') {
-                icon.classList.add('fa-solid', 'fa-spinner', 'fa-spin', 'text-sky-400');
-                icon.title = 'جارٍ حفظ الملاحظة في Firestore...';
-            } else if (status === 'success') {
-                icon.classList.add('fa-solid', 'fa-circle-check', 'text-emerald-400');
-                icon.title = 'تم حفظ الملاحظة في Firestore';
-                setTimeout(() => setNoteSaveStatus(customerId, 'idle'), 2000);
-            } else if (status === 'error') {
-                icon.classList.add('fa-solid', 'fa-triangle-exclamation', 'text-amber-400');
-                icon.title = 'فشل الحفظ في Firestore، تم الاحتفاظ بها محلياً';
-            } else {
-                icon.classList.add('fa-solid', 'fa-cloud-arrow-up', 'text-slate-500');
-                icon.title = 'تزامن سحابي عبر Firestore';
-            }
-        }
-
-        async function registerWithEmailAndPassword(email, password) {
-            if (!auth) await initFirebase();
-            return createUserWithEmailAndPassword(auth, email, password);
-        }
-
-        async function loginWithEmailAndPassword(email, password) {
-            if (!auth) await initFirebase();
-            return signInWithEmailAndPassword(auth, email, password);
-        }
-
+        // -------------------------------------------------------------
+        // 1. Authentication Handlers
+        // -------------------------------------------------------------
         async function handleLogin(e) {
             e.preventDefault();
-            const username = document.getElementById('usernameInput').value.trim();
-            const password = document.getElementById('passwordInput').value.trim();
-            const errorDiv = document.getElementById('loginError');
-            const errorText = document.getElementById('loginErrorText');
-            const submitBtn = document.getElementById('loginSubmitBtn');
+            const usernameInput = document.getElementById('loginUsername').value.trim();
+            const passwordInput = document.getElementById('loginPassword').value.trim();
+            const btnLogin = document.getElementById('btnLogin');
+            const loginError = document.getElementById('loginError');
 
-            errorDiv.classList.add('hidden');
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> <span>جاري تسجيل الدخول...</span>`;
-
-            const formData = new URLSearchParams();
-            formData.append('grant_type', 'password');
-            formData.append('password', password);
-            formData.append('scope', 'openid profile');
-            formData.append('client_id', 'username');
-            formData.append('username', username);
+            loginError.classList.add('hidden');
+            btnLogin.disabled = true;
+            btnLogin.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> <span>جاري تسجيل الدخول...</span>`;
 
             try {
+                // Form Data Request Body
+                const formData = new URLSearchParams();
+                formData.append('grant_type', 'password');
+                formData.append('scope', 'openid profile');
+                formData.append('client_id', '');
+                formData.append('username', usernameInput);
+                formData.append('password', passwordInput);
+
                 const response = await fetch(`${API_BASE}/auth/Contractor/token`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'x-client-app': '53d57a7f-3f89-4e9d-873b-3d071bc6dd9f',
+                        'x-user-role': '0'
+                    },
                     body: formData
                 });
 
                 if (!response.ok) {
-                    throw new Error('فشل تسجيل الدخول! يرجى التحقق من اسم المستخدم وكلمة المرور.');
+                    let errorMsg = "فشل تسجيل الدخول. تحقق من اسم المستخدم وكلمة المرور.";
+                    try {
+                        const errData = await response.json();
+                        if (errData.error_description) {
+                            errorMsg = errData.error_description;
+                        } else if (errData.message) {
+                            errorMsg = errData.message;
+                        } else if (errData.error) {
+                            errorMsg = `خطأ في الاعتماد (${errData.error}): اسم المستخدم أو كلمة المرور غير صحيحة.`;
+                        }
+                    } catch (err) {
+                        if (response.status === 401) {
+                            errorMsg = "اسم المستخدم أو كلمة المرور غير صحيحة (401 Unauthorized).";
+                        } else {
+                            errorMsg = `خطأ في الاتصال بالسيرفر: ${response.status}`;
+                        }
+                    }
+                    throw new Error(errorMsg);
                 }
-
-                const data = await response.json();
-                authToken = data.access_token || data.token || data.id_token;
-                currentUsername = username;
-
-                await initFirebase();
-                const sessionPayload = saveSessionState(authToken, currentUsername);
-                if (sessionPayload) {
-                    await persistSessionToFirestore(sessionPayload);
-                }
-
-                showAuthenticatedUi();
-                
-                const userEl = document.getElementById('currentUserName');
-                if (userEl) userEl.innerText = currentUsername;
-
-                await loadZones();
-
-            } catch (err) {
-                errorText.innerText = err.message || 'تعذر الاتصال بالخادم الرئيسي.';
-                errorDiv.classList.remove('hidden');
-            } finally {
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = `<span>تسجيل الدخول</span> <i class="fa-solid fa-arrow-left"></i>`;
-            }
-        }
-
-        async function loadZones() {
-            const zoneSelect = document.getElementById('zoneSelect');
-            zoneSelect.disabled = true;
-            zoneSelect.innerHTML = `<option value="">جاري جلب المناطق...</option>`;
-
-            try {
-                const response = await fetch(`${API_BASE}/current-user`, {
-                    headers: { 'Authorization': `Bearer ${authToken}` }
-                });
-
-                if (!response.ok) throw new Error('تعذر جلب المناطق الخاصة بالمستخدم.');
 
                 const data = await response.json();
                 
-                // Save agent info
-                currentAgentId = data.model?.self?.id || null;
-                currentAgentName = data.model?.self?.displayValue || 'غير معروف';
-                window.firebaseSync.setContext({ agentId: currentAgentId, agentName: currentAgentName, zoneId: null });
-
-                const sessionPayload = saveSessionState(authToken, currentUsername, currentAgentId, currentAgentName);
-                if (sessionPayload) {
-                    await persistSessionToFirestore(sessionPayload);
+                // Token response
+                token = data.access_token || data.token;
+                
+                if (!token) {
+                    throw new Error("لم يتم استلام رمز التوثيق (Token) من السيرفر");
                 }
 
-                // Display agent info in header
-                document.getElementById('currentAgentName').innerText = currentAgentName;
-                document.getElementById('currentAgentId').innerText = currentAgentId ? `ID: ${currentAgentId}` : 'ID: ---';
+                // Save Session
+                sessionStorage.setItem('ftth_token', token);
+                sessionStorage.setItem('ftth_username', usernameInput);
 
-                // Setup notes sync specifically for this Agent ID
-                if (currentAgentId) {
-                    setupNotesSyncForAgent(currentAgentId);
-                    await syncAgentProfileToFirestore();
-                }
+                showToast('تم تسجيل الدخول بنجاح', 'success');
+                showDashboard(usernameInput);
 
-                const zones = data.model?.zones || [];
-
-                zoneSelect.innerHTML = `<option value="">-- اختر المنطقة --</option>`;
-                zones.forEach(zone => {
-                    const option = document.createElement('option');
-                    option.value = zone.id || zone;
-                    option.textContent = zone.displayValue || zone.name || zone;
-                    zoneSelect.appendChild(option);
-                });
-
-                zoneSelect.disabled = false;
-            } catch (err) {
-                showAlert(err.message, 'error');
-            }
-        }
-
-        async function loadCustomersFromFirestore(zoneId) {
-            if (!firebaseReady || !zoneId) return null;
-            return window.firebaseSync.loadCustomersFromFirestore(zoneId);
-        }
-
-        async function onZoneChanged(zoneId) {
-            if (!zoneId) return;
-
-            const loader = document.getElementById('dataLoader');
-            const tableContainer = document.getElementById('tableContainer');
-            const progressFill = document.getElementById('progressBarFill');
-
-            loader.classList.remove('hidden');
-            tableContainer.classList.add('hidden');
-            progressFill.style.width = '10%';
-
-            fetchedCustomersData = [];
-            window.firebaseSync.setContext({ agentId: currentAgentId, agentName: currentAgentName, zoneId: zoneId });
-
-            try {
-                const firestoreData = await loadCustomersFromFirestore(zoneId);
-                if (firestoreData && firestoreData.length > 0) {
-                    renderTablePage();
-                    loader.classList.add('hidden');
-                    tableContainer.classList.remove('hidden');
-                    return;
-                }
-                // Fetch customer IDs list in selected Zone
-                const url = `${API_BASE}/customers?pageSize=50&pageNumber=1&sortCriteria.property=self.displayValue&sortCriteria.direction=asc&zoneIds=${encodeURIComponent(zoneId)}`;
-                const response = await fetch(url, {
-                    headers: { 'Authorization': `Bearer ${authToken}` }
-                });
-
-                if (!response.ok) throw new Error('تعذر جلب قائمة المشتركين لهذه المنطقة.');
-
-                const data = await response.json();
-                const items = data.items || [];
-                const total = items.length;
-
-                if (total === 0) {
-                    renderTableEmpty('لا يوجد مشتركين في هذه المنطقة');
-                    loader.classList.add('hidden');
-                    tableContainer.classList.remove('hidden');
-                    return;
-                }
-
-                // Loop through all customer IDs and fetch detailed records
-                for (let i = 0; i < total; i++) {
-                    const custId = items[i].self?.id || items[i].id;
-                    if (!custId) continue;
-
-                    const percent = Math.round(((i + 1) / total) * 100);
-                    progressFill.style.width = `${percent}%`;
-
-                    // Parallel requests for customer info & subscription info
-                    const [custDetails, subDetails] = await Promise.all([
-                        fetchCustomerDetails(custId),
-                        fetchSubscriptionDetails(custId)
-                    ]);
-
-                    let ontDevice = { devicePassword: 'N/A', ontVendor: 'N/A' };
-                    let rxPowerDetails = { rxPower: 'N/A', status: 'N/A' };
-
-                    if (subDetails.deviceId) {
-                        ontDevice = await fetchDeviceDetails(subDetails.deviceId);
-                    }
-
-                    if (subDetails.username && subDetails.username !== 'N/A') {
-                        rxPowerDetails = await fetchOntPowerDetails(subDetails.username);
-                    }
-
-                    fetchedCustomersData.push({
-                        id: custId,
-                        name: custDetails.name,
-                        mobile: custDetails.mobile,
-                        username: subDetails.username,
-                        serial: subDetails.serial,
-                        fdt: subDetails.fdt,
-                        fat: subDetails.fat,
-                        expires: subDetails.expires,
-                        remainingDaysText: subDetails.remainingDaysText,
-                        category: subDetails.category,
-                        startedAt: subDetails.startedAt,
-                        status: subDetails.status,
-                        deviceId: subDetails.deviceId,
-                        devicePassword: ontDevice.devicePassword,
-                        ontVendor: ontDevice.ontVendor,
-                        rxPower: rxPowerDetails.rxPower,
-                        rxStatus: rxPowerDetails.status
-                    });
-                }
-
-                await syncCustomerRecordsToFirestore(fetchedCustomersData, zoneId);
-                populateFilterDropdowns();
-                applyFacetedFilters();
-
-            } catch (err) {
-                showAlert(err.message, 'error');
+            } catch (error) {
+                console.error("Login Error:", error);
+                document.getElementById('loginErrorText').innerText = error.message || 'حدث خطأ أثناء الاتصال بالسيرفر. يرجى التأكد من البيانات أو إعدادات CORS.';
+                loginError.classList.remove('hidden');
             } finally {
-                loader.classList.add('hidden');
-                tableContainer.classList.remove('hidden');
+                btnLogin.disabled = false;
+                btnLogin.innerHTML = `<span>تسجيل الدخول</span> <i class="fa-solid fa-arrow-left"></i>`;
             }
         }
 
-        async function fetchCustomerDetails(customerId) {
-            try {
-                const res = await fetch(`${API_BASE}/customers/${customerId}`, {
-                    headers: { 'Authorization': `Bearer ${authToken}` }
-                });
-                if (!res.ok) return { name: 'غير معروف', mobile: 'N/A' };
-                const data = await res.json();
-                return {
-                    name: data.model?.primaryContact?.self?.displayValue || data.model?.name || 'غير معروف',
-                    mobile: data.model?.primaryContact?.mobile || 'N/A'
-                };
-            } catch {
-                return { name: 'غير معروف', mobile: 'N/A' };
-            }
+        function showDashboard(username) {
+            document.getElementById('loggedInUsername').innerText = username;
+            document.getElementById('userInfoSection').classList.remove('hidden');
+            document.getElementById('loginSection').classList.add('hidden');
+            document.getElementById('dashboardSection').classList.remove('hidden');
         }
 
-        async function fetchSubscriptionDetails(customerId) {
-            try {
-                const res = await fetch(`${API_BASE}/customers/subscriptions?customerId=${customerId}`, {
-                    headers: { 'Authorization': `Bearer ${authToken}` }
-                });
-                if (!res.ok) return getDefaultSub();
-
-                const data = await res.json();
-                const sub = data.items?.[0];
-                if (!sub) return getDefaultSub();
-
-                const expires = sub.expires || null;
-                const remainingText = calculateDaysRemaining(expires);
-
-                return {
-                    username: sub.deviceDetails?.username || 'N/A',
-                    serial: sub.deviceDetails?.serial || 'N/A',
-                    fdt: sub.deviceDetails?.fdt?.displayValue || 'N/A',
-                    fat: sub.deviceDetails?.fat?.displayValue || 'N/A',
-                    expires: expires,
-                    remainingDaysText: remainingText,
-                    category: sub.self?.displayValue || 'عادي',
-                    startedAt: sub.startedAt || 'N/A',
-                    status: sub.status || 'Active',
-                    deviceId: sub.self?.id || null
-                };
-            } catch {
-                return getDefaultSub();
-            }
+        function logout() {
+            sessionStorage.removeItem('ftth_token');
+            sessionStorage.removeItem('ftth_username');
+            token = null;
+            subscriptionsData = [];
+            
+            document.getElementById('userInfoSection').classList.add('hidden');
+            document.getElementById('dashboardSection').classList.add('hidden');
+            document.getElementById('loginSection').classList.remove('hidden');
+            showToast('تم تسجيل الخروج', 'info');
         }
 
-        function getDefaultSub() {
-            return {
-                username: 'N/A', serial: 'N/A', fdt: 'N/A', fat: 'N/A',
-                expires: null, remainingDaysText: 'غير محدد', category: 'N/A',
-                startedAt: 'N/A', status: 'N/A', deviceId: null
-            };
-        }
 
-        async function fetchDeviceDetails(deviceId) {
-            try {
-                const res = await fetch(`${API_BASE}/subscriptions/${deviceId}/device`, {
-                    headers: { 'Authorization': `Bearer ${authToken}` }
-                });
-                if (!res.ok) return { devicePassword: 'N/A', ontVendor: 'N/A' };
-                const data = await res.json();
-                return {
-                    devicePassword: data.model?.devicePassword || 'N/A',
-                    ontVendor: data.model?.ontVendor?.displayValue || 'N/A'
-                };
-            } catch {
-                return { devicePassword: 'N/A', ontVendor: 'N/A' };
-            }
-        }
-
-        async function fetchOntPowerDetails(username) {
-            try {
-                const res = await fetch(`${API_BASE}/subscriptions/device/ont?username=${encodeURIComponent(username)}`, {
-                    headers: { 'Authorization': `Bearer ${authToken}` }
-                });
-                if (!res.ok) return { rxPower: 'N/A', status: 'N/A' };
-                const data = await res.json();
-                return {
-                    rxPower: data.model?.rxPower || 'N/A',
-                    status: data.model?.status?.displayValue || 'N/A'
-                };
-            } catch {
-                return { rxPower: 'N/A', status: 'N/A' };
-            }
-        }
-
-        function calculateDaysRemaining(expiresIso) {
-            if (!expiresIso) return 'غير محدد';
-            const expDate = new Date(expiresIso);
-            const now = new Date();
-            const diffTime = expDate - now;
-            const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-            if (days < 0) return `(منتهي منذ ${Math.abs(days)} يوم)`;
-            return `(متبقي ${days} يوم)`;
-        }
-
-        function populateFilterDropdowns() {
-            const vendorFilter = document.getElementById('vendorFilter');
-            const categoryFilter = document.getElementById('categoryFilter');
-
-            const vendors = new Set();
-            const categories = new Set();
-
-            fetchedCustomersData.forEach(item => {
-                if (item.ontVendor && item.ontVendor !== 'N/A') vendors.add(item.ontVendor);
-                if (item.category && item.category !== 'N/A') categories.add(item.category);
-            });
-
-            vendorFilter.innerHTML = `<option value="ALL">جميع الشركات</option>`;
-            vendors.forEach(v => {
-                vendorFilter.innerHTML += `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`;
-            });
-
-            categoryFilter.innerHTML = `<option value="ALL">جميع الفئات</option>`;
-            categories.forEach(c => {
-                categoryFilter.innerHTML += `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`;
-            });
-        }
-
-        function applyFacetedFilters() {
-            const search = document.getElementById('searchInput').value.trim().toLowerCase();
-            const status = document.getElementById('statusFilter').value;
-            const vendor = document.getElementById('vendorFilter').value;
-            const category = document.getElementById('categoryFilter').value;
-
-            // Calculate active filters count
-            let activeCount = 0;
-            if (search) activeCount++;
-            if (status !== 'ALL') activeCount++;
-            if (vendor !== 'ALL') activeCount++;
-            if (category !== 'ALL') activeCount++;
-
-            const badge = document.getElementById('activeFilterBadge');
-            if (badge) {
-                badge.innerText = activeCount;
-                if (activeCount > 0) {
-                    badge.classList.remove('hidden');
-                } else {
-                    badge.classList.add('hidden');
-                }
-            }
-
-            filteredCustomersData = fetchedCustomersData.filter(item => {
-                // Text search across fields
-                const textMatch = !search ||
-                    item.name.toLowerCase().includes(search) ||
-                    item.mobile.toLowerCase().includes(search) ||
-                    item.username.toLowerCase().includes(search) ||
-                    item.serial.toLowerCase().includes(search) ||
-                    item.fdt.toLowerCase().includes(search) ||
-                    item.fat.toLowerCase().includes(search);
-
-                // Status Filter
-                let statusMatch = true;
-                if (status === 'ACTIVE') statusMatch = !item.remainingDaysText.includes('منتهي');
-                if (status === 'EXPIRED') statusMatch = item.remainingDaysText.includes('منتهي');
-
-                // Vendor Filter
-                const vendorMatch = (vendor === 'ALL') || (item.ontVendor === vendor);
-
-                // Category Filter
-                const categoryMatch = (category === 'ALL') || (item.category === category);
-
-                return textMatch && statusMatch && vendorMatch && categoryMatch;
-            });
-
-            window.currentPage = 1;
-            renderTablePage();
-        }
-
-        function getTotalPages() {
-            return Math.ceil(filteredCustomersData.length / pageSize) || 1;
-        }
-
-        function renderTablePage() {
-            const tbody = document.getElementById('customersTableBody');
-            const total = filteredCustomersData.length;
-            pageSize = parseInt(document.getElementById('pageSizeSelect').value) || 50;
-
-            document.getElementById('totalCountBadge').innerText = fetchedCustomersData.length;
-            document.getElementById('filteredCountBadge').innerText = total;
-
-            if (total === 0) {
-                renderTableEmpty('لا توجد نتائج مطابقة لفلاتر البحث');
-                renderPagination(0);
+        // -------------------------------------------------------------
+        // 2. Fetching Subscriptions & Customer Mobiles (with Dynamic Status & Pagination)
+        // -------------------------------------------------------------
+        async function fetchSubscriptions() {
+            if (!token) {
+                showToast('الرجاء تسجيل الدخول أولاً', 'error');
                 return;
             }
 
-            const totalPages = getTotalPages();
-            if (window.currentPage > totalPages) window.currentPage = totalPages;
-            if (window.currentPage < 1) window.currentPage = 1;
+            const selectedDateVal = document.getElementById('selectedDate').value;
+            const selectedStatus = document.getElementById('subscriptionStatus').value; // Expired or Active
 
-            const startIndex = (window.currentPage - 1) * pageSize;
-            const endIndex = Math.min(startIndex + pageSize, total);
-            const pageData = filteredCustomersData.slice(startIndex, endIndex);
+            if (!selectedDateVal) {
+                showToast('يرجى تحديد تاريخ الانتهاء', 'error');
+                return;
+            }
 
-            tbody.innerHTML = '';
-            pageData.forEach(item => {
-                const savedNote = userNotes[item.id] || '';
-                const isExpired = item.remainingDaysText.includes('منتهي');
+            const btnFetch = document.getElementById('btnFetch');
+            const progressContainer = document.getElementById('progressContainer');
+            const progressBar = document.getElementById('progressBar');
+            const progressCount = document.getElementById('progressCount');
+            const progressStatus = document.getElementById('progressStatus');
+
+            btnFetch.disabled = true;
+            btnFetch.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> <span>جاري الجلب...</span>`;
+            
+            // Format dates properly for UTC offset
+            const selDateObj = new Date(selectedDateVal);
+            const prevDateObj = new Date(selDateObj);
+            prevDateObj.setDate(prevDateObj.getDate() - 1);
+            
+            const prevDateVal = prevDateObj.toISOString().split('T')[0];
+
+            const fromDate = `${prevDateVal}T21:00:00.000Z`;
+            const toDate = `${selectedDateVal}T20:59:59.999Z`;
+
+            let allItems = [];
+            let currentPage = 1;
+            const pageSize = 100;
+            let totalCount = 0;
+
+            progressContainer.classList.remove('hidden');
+            progressBar.style.width = '0%';
+
+            try {
+                // Loop to fetch all pages if totalCount > 100
+                do {
+                    progressStatus.innerText = `جاري جلب قائمة الاشتراكات (الصفحة ${currentPage})...`;
+
+                    const queryParams = new URLSearchParams({
+                        'pageSize': pageSize.toString(),
+                        'pageNumber': currentPage.toString(),
+                        'sortCriteria.property': 'expires',
+                        'sortCriteria.direction': 'desc',
+                        'status': selectedStatus,
+                        'fromExpirationDate': fromDate,
+                        'toExpirationDate': toDate,
+                        'hierarchyLevel': '0'
+                    });
+
+                    const response = await fetch(`${API_BASE}/subscriptions?${queryParams.toString()}`, {
+                        method: 'GET',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Accept': 'application/json',
+                            'x-client-app': '53d57a7f-3f89-4e9d-873b-3d071bc6dd9f',
+                            'x-user-role': '0'
+                        }
+                    });
+
+                    if (!response.ok) {
+                        if (response.status === 401) {
+                            logout();
+                            throw new Error('انتهت جلسة الدخول. يرجى إعادة تسجيل الدخول.');
+                        }
+                        let errorText = `فشل الجلب من السيرفر: ${response.status}`;
+                        try {
+                            const errData = await response.json();
+                            if (errData && (errData.message || errData.title)) {
+                                errorText += ` (${errData.message || errData.title})`;
+                            }
+                        } catch (e) {}
+                        throw new Error(errorText);
+                    }
+
+                    const result = await response.json();
+                    const pageItems = result.items || result.data || (Array.isArray(result) ? result : []);
+                    
+                    // Read total count on the first page
+                    if (currentPage === 1) {
+                        totalCount = result.totalCount !== undefined ? result.totalCount : (result.count !== undefined ? result.count : pageItems.length);
+                    }
+
+                    if (Array.isArray(pageItems) && pageItems.length > 0) {
+                        allItems = allItems.concat(pageItems);
+                    } else {
+                        break; // Stop if no items returned
+                    }
+
+                    currentPage++;
+
+                } while (allItems.length < totalCount && (currentPage - 1) * pageSize < totalCount);
+
+                if (allItems.length === 0) {
+                    subscriptionsData = [];
+                    renderTable([]);
+                    const statusText = selectedStatus === 'Expired' ? 'المنتهية' : 'القريبة من الانتهاء';
+                    showToast(`لا توجد اشتراكات ${statusText} في هذا التاريخ`, 'info');
+                    return;
+                }
+
+                showToast(`تم استلام قائمة بـ ${allItems.length} اشتراك. جاري استكمال تفاصيل الهواتف...`, 'info');
+
+                // Now loop through all items to fetch Customer Mobiles
+                progressStatus.innerText = 'جاري جلب أرقام الهواتف وتفاصيل المشتركين...';
+                progressCount.innerText = `0 / ${allItems.length}`;
+
+                subscriptionsData = [];
+
+                for (let i = 0; i < allItems.length; i++) {
+                    const item = allItems[i];
+                    
+                    const customerId = item.customer ? item.customer.id : null;
+                    const customerName = item.customer ? item.customer.displayValue : 'غير معروف';
+                    const username = item.username || 'N/A';
+                    const zoneId = (item.zone && item.zone.id) ? item.zone.id : (item.zoneId || 'N/A');
+                    const startedAt = item.startedAt;
+                    const expires = item.expires;
+
+                    let mobileNumber = 'N/A';
+
+                    if (customerId) {
+                        try {
+                            const custResponse = await fetch(`${API_BASE}/customers/${customerId}`, {
+                                method: 'GET',
+                                headers: {
+                                    'Authorization': `Bearer ${token}`,
+                                    'Accept': 'application/json',
+                                    'x-client-app': '53d57a7f-3f89-4e9d-873b-3d071bc6dd9f',
+                                    'x-user-role': '0'
+                                }
+                            });
+
+                            if (custResponse.ok) {
+                                const custData = await custResponse.json();
+                                if (custData.model && custData.model.primaryContact && custData.model.primaryContact.mobile) {
+                                    mobileNumber = custData.model.primaryContact.mobile;
+                                } else if (custData.primaryContact && custData.primaryContact.mobile) {
+                                    mobileNumber = custData.primaryContact.mobile;
+                                }
+                            }
+                        } catch (err) {
+                            console.warn(`تعذر جلب تفاصيل الزبون ${customerId}:`, err);
+                        }
+                    }
+
+                    // Calculate commitment duration
+                    const commitmentPeriod = calculateCommitmentDuration(startedAt, expires);
+
+                    subscriptionsData.push({
+                        customerName,
+                        customerId: customerId || 'N/A',
+                        username,
+                        zoneId,
+                        mobile: mobileNumber,
+                        startedAt: formatDateEnglish(startedAt),
+                        expires: formatDateEnglish(expires),
+                        commitmentPeriod,
+                        rawStartedAt: startedAt,
+                        rawExpires: expires,
+                        status: selectedStatus
+                    });
+
+                    // Update Progress
+                    const pct = Math.round(((i + 1) / allItems.length) * 100);
+                    progressBar.style.width = `${pct}%`;
+                    progressCount.innerText = `${i + 1} / ${allItems.length}`;
+                }
+
+                showToast(`تم جلب جميع الحسابات بنجاح (${subscriptionsData.length} سجل)`, 'success');
                 
-                const tr = document.createElement('tr');
-                tr.className = 'hover:bg-slate-800/40 transition duration-150 border-b border-slate-800/60';
+                // Update stats
+                document.getElementById('statLabelTotal').innerText = selectedStatus === 'Expired' ? 'إجمالي الاشتراكات المنتهية' : 'إجمالي الاشتراكات التي ستنتهي قريباً';
+                document.getElementById('statTotal').innerText = subscriptionsData.length;
+                document.getElementById('statMobiles').innerText = subscriptionsData.filter(d => d.mobile !== 'N/A').length;
+                document.getElementById('statDate').innerText = selectedDateVal;
+                document.getElementById('statsContainer').classList.remove('hidden');
+                document.getElementById('tableControls').classList.remove('hidden');
 
+                // Render Table
+                filterTable();
+
+            } catch (error) {
+                console.error("Fetch Error:", error);
+                showToast(error.message, 'error');
+            } finally {
+                btnFetch.disabled = false;
+                btnFetch.innerHTML = `<i class="fa-solid fa-magnifying-glass"></i> <span>جلب البيانات</span>`;
+                setTimeout(() => {
+                    progressContainer.classList.add('hidden');
+                }, 2000);
+            }
+        }
+
+
+        // -------------------------------------------------------------
+        // 3. Helpers & Data Calculation
+        // -------------------------------------------------------------
+        
+        // Calculate Commitment Duration between StartedAt & Expires
+        function calculateCommitmentDuration(startIso, endIso) {
+            if (!startIso || !endIso) return 'غير محدد';
+
+            const start = new Date(startIso);
+            const end = new Date(endIso);
+
+            if (isNaN(start.getTime()) || isNaN(end.getTime())) return 'غير محدد';
+
+            // Difference in days
+            const diffTime = Math.abs(end - start);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+            // Estimate months (~30 days per month)
+            const months = Math.round(diffDays / 30);
+
+            if (months <= 1) {
+                return 'شهر واحد';
+            } else if (months === 2) {
+                return 'شهرين (2)';
+            } else if (months === 3) {
+                return '3 أشهر';
+            } else if (months > 3) {
+                return `${months} أشهر أو أكثر`;
+            } else {
+                return `${diffDays} يوم`;
+            }
+        }
+
+        // Format dates strictly in English format
+        function formatDateEnglish(dateStr) {
+            if (!dateStr) return 'N/A';
+            const d = new Date(dateStr);
+            if (isNaN(d.getTime())) return dateStr;
+            return d.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true
+            });
+        }
+
+
+        // -------------------------------------------------------------
+        // 4. UI Rendering & Table Filtering
+        // -------------------------------------------------------------
+        function filterTable() {
+            const query = document.getElementById('searchInput').value.toLowerCase().trim();
+            
+            if (!query) {
+                filteredSubscriptionsData = [...subscriptionsData];
+            } else {
+                filteredSubscriptionsData = subscriptionsData.filter(item => 
+                    item.customerName.toLowerCase().includes(query) ||
+                    String(item.customerId).toLowerCase().includes(query) ||
+                    item.username.toLowerCase().includes(query) ||
+                    String(item.zoneId).toLowerCase().includes(query) ||
+                    item.mobile.toLowerCase().includes(query)
+                );
+            }
+
+            document.getElementById('filteredCount').innerText = filteredSubscriptionsData.length;
+            document.getElementById('totalResultsCount').innerText = subscriptionsData.length;
+            document.getElementById('btnExport').disabled = subscriptionsData.length === 0;
+
+            renderTable(filteredSubscriptionsData);
+        }
+
+        function renderTable(data) {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+
+            if (data.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="9" class="p-8 text-center text-slate-400">
+                            لا توجد بيانات مطابقة للبحث أو أن القائمة فارغة.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            data.forEach((item, index) => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 transition border-b border-slate-100";
+                
                 tr.innerHTML = `
-                    <td class="p-3 whitespace-nowrap">
-                        <div class="font-bold text-white">${escapeHtml(item.name)}</div>
-                        <div class="text-[11px] text-slate-400 font-mono"><i class="fa-solid fa-phone text-[10px] ml-1"></i>${escapeHtml(item.mobile)}</div>
-                    </td>
-                    <td class="p-3 font-mono text-brand-400 font-semibold whitespace-nowrap">${escapeHtml(item.username)}</td>
-                    <td class="p-3 font-mono text-slate-300 whitespace-nowrap">${escapeHtml(item.serial)}</td>
-                    <td class="p-3 whitespace-nowrap">
-                        <span class="bg-slate-950 px-2 py-0.5 rounded border border-slate-800 text-[11px]">${escapeHtml(item.fdt)} / ${escapeHtml(item.fat)}</span>
-                    </td>
-                    <td class="p-3 whitespace-nowrap">
-                        <div class="font-mono text-amber-300 font-bold">${escapeHtml(item.devicePassword)}</div>
-                        <div class="text-[10px] text-slate-400">${escapeHtml(item.ontVendor)}</div>
-                    </td>
-                    <td class="p-3 whitespace-nowrap">
-                        <span class="font-mono text-xs font-bold px-2 py-0.5 rounded ${getRxPowerBadgeClass(item.rxPower)}">
-                            ${escapeHtml(item.rxPower)}
+                    <td class="p-4 font-bold text-slate-400">${index + 1}</td>
+                    <td class="p-4 font-bold text-slate-900">${escapeHtml(item.customerName)}</td>
+                    <td class="p-4 font-mono text-slate-600">${escapeHtml(item.customerId)}</td>
+                    <td class="p-4 font-mono text-brand-600 font-semibold">${escapeHtml(item.username)}</td>
+                    <td class="p-4 font-mono text-indigo-600 font-semibold">${escapeHtml(item.zoneId)}</td>
+                    <td class="p-4 font-mono text-emerald-700 font-bold" dir="ltr">${escapeHtml(item.mobile)}</td>
+                    <td class="p-4 text-slate-500 font-mono" dir="ltr">${escapeHtml(item.startedAt)}</td>
+                    <td class="p-4 text-slate-500 font-mono" dir="ltr">${escapeHtml(item.expires)}</td>
+                    <td class="p-4">
+                        <span class="inline-block px-2.5 py-1 rounded-full text-xs font-semibold bg-brand-50 text-brand-700 border border-brand-200">
+                            ${escapeHtml(item.commitmentPeriod)}
                         </span>
-                        <div class="text-[10px] text-slate-400 mt-0.5">${escapeHtml(item.rxStatus)}</div>
-                    </td>
-                    <td class="p-3 whitespace-nowrap">
-                        <div class="text-slate-200">${escapeHtml(item.category)}</div>
-                        <div class="text-[10px] ${isExpired ? 'text-rose-400' : 'text-emerald-400'} font-semibold">
-                            ${item.expires ? item.expires.split('T')[0] : '---'} ${escapeHtml(item.remainingDaysText)}
-                        </div>
-                    </td>
-                    <td class="p-3 whitespace-nowrap">
-                        <span class="px-2 py-0.5 text-[10px] font-bold rounded-full ${isExpired ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}">
-                            ${isExpired ? 'منتهي' : 'نشط'}
-                        </span>
-                    </td>
-                    <td class="p-3 whitespace-nowrap min-w-[160px]">
-                        <div class="relative flex items-center">
-                            <input type="text" value="${escapeHtml(savedNote)}" data-customer-id="${item.id}" placeholder="أضف ملاحظة..."
-                                oninput="handleNoteInput('${item.id}', this.value)"
-                                onchange="onNoteChanged('${item.id}', this.value)"
-                                class="w-full bg-slate-950/80 border border-slate-700/80 rounded-lg py-1 px-2 text-xs text-amber-300 placeholder-slate-600 focus:border-amber-400 outline-none transition">
-                            <i data-note-status="${item.id}" class="fa-solid fa-cloud-arrow-up absolute left-2 text-[10px] text-slate-500 pointer-events-none" title="تزامن سحابي عبر Firestore"></i>
-                        </div>
-                    </td>
-                    <td class="p-3 whitespace-nowrap text-center">
-                        <div class="flex items-center justify-center space-x-1.5 space-x-reverse">
-                            <button onclick="openModal('${item.id}')" title="عرض التفاصيل" class="p-1.5 bg-brand-500/10 hover:bg-brand-500/20 text-brand-400 rounded-lg border border-brand-500/20 transition">
-                                <i class="fa-solid fa-eye"></i>
-                            </button>
-                            <button onclick="checkOffers('${item.deviceId}')" title="فحص العروض" class="p-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 rounded-lg border border-amber-500/20 transition">
-                                <i class="fa-solid fa-tags"></i>
-                            </button>
-                        </div>
                     </td>
                 `;
                 tbody.appendChild(tr);
             });
-
-            document.getElementById('pageStatsText').innerText = `عرض ${startIndex + 1}-${endIndex} من أصل ${total}`;
-            renderPagination(totalPages);
-        }
-
-        function renderPagination(totalPages) {
-            const container = document.getElementById('pageNumbersContainer');
-            container.innerHTML = '';
-
-            if (totalPages <= 1) return;
-
-            let start = Math.max(1, window.currentPage - 2);
-            let end = Math.min(totalPages, window.currentPage + 2);
-
-            for (let i = start; i <= end; i++) {
-                const btn = document.createElement('button');
-                btn.className = `px-2.5 py-1 rounded-lg text-xs font-semibold border transition ${i === window.currentPage ? 'bg-brand-600 text-white border-brand-500 shadow-md' : 'bg-slate-900 text-slate-300 border-slate-800 hover:bg-slate-800'}`;
-                btn.innerText = i;
-                btn.onclick = () => goToPage(i);
-                container.appendChild(btn);
-            }
-        }
-
-        function goToPage(page) {
-            const totalPages = getTotalPages();
-            if (page < 1) page = 1;
-            if (page > totalPages) page = totalPages;
-            window.currentPage = page;
-            renderTablePage();
-        }
-
-        function goToFirstPage() {
-            goToPage(1);
-        }
-
-        function goToPrevPage() {
-            goToPage(window.currentPage - 1);
-        }
-
-        function goToNextPage() {
-            goToPage(window.currentPage + 1);
-        }
-
-        function goToLastPage() {
-            goToPage(getTotalPages());
-        }
-
-        function onPageSizeChange() {
-            window.currentPage = 1;
-            renderTablePage();
-        }
-
-        function getRxPowerBadgeClass(rx) {
-            if (!rx || rx === 'N/A') return 'bg-slate-800 text-slate-400';
-            const num = parseFloat(rx);
-            if (isNaN(num)) return 'bg-slate-800 text-slate-400';
-            if (num >= -24 && num <= -12) return 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
-            if (num < -24 && num >= -27) return 'bg-amber-500/10 text-amber-400 border border-amber-500/20';
-            return 'bg-rose-500/10 text-rose-400 border border-rose-500/20';
-        }
-
-        function renderTableEmpty(msg) {
-            const tbody = document.getElementById('customersTableBody');
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="10" class="p-8 text-center text-slate-500">
-                        <i class="fa-solid fa-folder-open text-2xl mb-2 block text-slate-600"></i>
-                        ${escapeHtml(msg)}
-                    </td>
-                </tr>
-            `;
-        }
-
-        function handleNoteInput(customerId, value) {
-            if (!customerId) return;
-            if (noteSaveTimers[customerId]) {
-                clearTimeout(noteSaveTimers[customerId]);
-            }
-            noteSaveTimers[customerId] = setTimeout(() => {
-                saveNoteToCloud(customerId, value);
-            }, 350);
-        }
-
-        function onNoteChanged(customerId, value) {
-            if (!customerId) return;
-            if (noteSaveTimers[customerId]) {
-                clearTimeout(noteSaveTimers[customerId]);
-            }
-            saveNoteToCloud(customerId, value);
-        }
-
-        function openModal(customerId) {
-            const item = fetchedCustomersData.find(c => c.id === customerId);
-            if (!item) return;
-
-            document.getElementById('modalCustomerName').innerText = item.name;
-            document.getElementById('modalCustomerId').innerText = `ID المشترك: ${item.id}`;
-
-            const grid = document.getElementById('modalDetailsGrid');
-            grid.innerHTML = `
-                <div class="bg-slate-950 p-3 rounded-xl border border-slate-800"><span class="text-slate-400 block mb-0.5">رقم الهاتف:</span><strong class="text-white">${escapeHtml(item.mobile)}</strong></div>
-                <div class="bg-slate-950 p-3 rounded-xl border border-slate-800"><span class="text-slate-400 block mb-0.5">اسم المستخدم (PPP):</span><strong class="text-brand-400 font-mono">${escapeHtml(item.username)}</strong></div>
-                <div class="bg-slate-950 p-3 rounded-xl border border-slate-800"><span class="text-slate-400 block mb-0.5">السيريال نمبر:</span><strong class="text-white font-mono">${escapeHtml(item.serial)}</strong></div>
-                <div class="bg-slate-950 p-3 rounded-xl border border-slate-800"><span class="text-slate-400 block mb-0.5">رمز ONT:</span><strong class="text-amber-300 font-mono">${escapeHtml(item.devicePassword)}</strong></div>
-                <div class="bg-slate-950 p-3 rounded-xl border border-slate-800"><span class="text-slate-400 block mb-0.5">النوع (Vendor):</span><strong class="text-white">${escapeHtml(item.ontVendor)}</strong></div>
-                <div class="bg-slate-950 p-3 rounded-xl border border-slate-800"><span class="text-slate-400 block mb-0.5">FDT / FAT:</span><strong class="text-white">${escapeHtml(item.fdt)} / ${escapeHtml(item.fat)}</strong></div>
-                <div class="bg-slate-950 p-3 rounded-xl border border-slate-800"><span class="text-slate-400 block mb-0.5">قدرة الإشارة:</span><strong class="text-emerald-400 font-mono">${escapeHtml(item.rxPower)}</strong></div>
-                <div class="bg-slate-950 p-3 rounded-xl border border-slate-800"><span class="text-slate-400 block mb-0.5">تاريخ وتفاصيل الانقضاء:</span><strong class="text-white">${item.expires ? item.expires.split('T')[0] : '---'} ${escapeHtml(item.remainingDaysText)}</strong></div>
-            `;
-
-            document.getElementById('customerModal').classList.remove('hidden');
-        }
-
-        function closeModal() {
-            document.getElementById('customerModal').classList.add('hidden');
-        }
-
-        function copyModalData() {
-            const name = document.getElementById('modalCustomerName').innerText;
-            const gridText = document.getElementById('modalDetailsGrid').innerText;
-            const textToCopy = `${name}\n${gridText}`;
-
-            const textarea = document.createElement('textarea');
-            textarea.value = textToCopy;
-            document.body.appendChild(textarea);
-            textarea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textarea);
-
-            showAlert('تم نسخ تفاصيل المشترك إلى الحافظة بنجاح', 'success');
-        }
-
-        async function checkOffers(deviceId) {
-            if (!deviceId || deviceId === 'null' || deviceId === 'undefined') {
-                showAlert('لا يوجد ID جهاز مرتبط بهذا المشترك لفحص العروض', 'error');
-                return;
-            }
-
-            currentOfferDeviceId = deviceId;
-            document.getElementById('offersDeviceSubId').innerText = `ID الجهاز: ${deviceId}`;
-            const modal = document.getElementById('offersModal');
-            modal.classList.remove('hidden');
-
-            await calculateOfferPrice();
-        }
-
-        async function calculateOfferPrice() {
-            if (!currentOfferDeviceId) return;
-
-            const speed = document.getElementById('offerSpeedSelect').value;
-            const commitment = document.getElementById('offerCommitmentSelect').value;
-            const content = document.getElementById('offersContent');
-
-            content.innerHTML = `
-                <div class="text-center py-6">
-                    <i class="fa-solid fa-spinner fa-spin text-2xl text-amber-400"></i>
-                    <p class="text-xs text-slate-400 mt-2">جاري استعلام العروض المتاحة وحساب السعر...</p>
-                </div>
-            `;
-
-            try {
-                const baseServiceEncoded = `%7B%22value%22:%22${encodeURIComponent(speed)}%22,%22type%22:%22Base%22%7D`;
-                const url = `${API_BASE}/subscriptions/calculate-price?bundleId=FTTH_BASIC&commitmentPeriodValue=${encodeURIComponent(commitment)}&planOperationType=Change&subscriptionId=${encodeURIComponent(currentOfferDeviceId)}&services=${baseServiceEncoded}&services=%7B%22value%22:%22IPTV%22,%22type%22:%22Vas%22%7D&services=%7B%22value%22:%22PARENTAL_CONTROL%22,%22type%22:%22Vas%22%7D&salesType=0`;
-
-                const response = await fetch(url, {
-                    headers: { 'Authorization': `Bearer ${authToken}` }
-                });
-
-                if (!response.ok) throw new Error('تعذر حساب سعر العروض المتاحة.');
-
-                const data = await response.json();
-                const totalPrice = data.model?.totalPrice.value ?? 0;
-                const formattedPrice = new Intl.NumberFormat('ar-IQ', {style: 'currency', currency: 'IQD'}).format(totalPrice);
-
-                content.innerHTML = `
-                    <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 text-center space-y-2">
-                        <span class="text-xs text-slate-400">السعر المتوفر للمشترك</span>
-                        <div class="text-2xl font-black text-emerald-400 font-mono">
-                            ${formattedPrice}
-                        </div>
-                    </div>
-
-                    <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-800/80 space-y-1.5 text-xs">
-                        <div class="flex justify-between text-slate-300">
-                            <span>الباقة الأساسية:</span>
-                            <strong class="text-white">FTTH_BASIC ${escapeHtml(speed)}</strong>
-                        </div>
-                        <div class="flex justify-between text-slate-300">
-                            <span>فترة الالتزام:</span>
-                            <strong class="text-amber-400">${escapeHtml(commitment)} ${commitment === '1' ? 'شهر' : 'أشهر'}</strong>
-                        </div>
-                        <div class="flex justify-between text-slate-300">
-                            <span>الخدمات المرفقة:</span>
-                            <strong class="text-brand-400">IPTV + Parental Control</strong>
-                        </div>
-                    </div>
-                `;
-
-            } catch (err) {
-                content.innerHTML = `
-                    <div class="bg-rose-500/10 p-4 rounded-xl border border-rose-500/20 text-center text-xs text-rose-400">
-                        <i class="fa-solid fa-circle-exclamation text-lg mb-1 block"></i>
-                        ${escapeHtml(err.message)}
-                    </div>
-                `;
-            }
-        }
-
-        function closeOffersModal() {
-            document.getElementById('offersModal').classList.add('hidden');
-        }
-
-        async function openWalletModal() {
-            if (!currentAgentId) {
-                showAlert('لم يتم العثور على ID الوكيل الحالي', 'error');
-                return;
-            }
-
-            document.getElementById('modalWalletAgentName').innerText = currentAgentName || 'محفظة الوكيل';
-            document.getElementById('modalWalletAgentId').innerText = `ID: ${currentAgentId}`;
-            
-            document.getElementById('walletModal').classList.remove('hidden');
-            await fetchWalletBalance();
-        }
-
-        function closeWalletModal() {
-            document.getElementById('walletModal').classList.add('hidden');
-        }
-
-        async function fetchWalletBalance() {
-            if (!currentAgentId) return;
-
-            const content = document.getElementById('walletContent');
-            content.innerHTML = `
-                <div class="text-center py-6">
-                    <i class="fa-solid fa-spinner fa-spin text-2xl text-amber-400"></i>
-                    <p class="text-xs text-slate-400 mt-2">جاري استعلام رصيد محفظة الوكيل...</p>
-                </div>
-            `;
-
-            try {
-                const response = await fetch(`${API_BASE}/partners/${encodeURIComponent(currentAgentId)}/wallets/balance`, {
-                    headers: { 'Authorization': `Bearer ${authToken}` }
-                });
-
-                if (!response.ok) throw new Error('تعذر جلب رصيد المحفظة الخاص بالوكيل.');
-
-                const data = await response.json();
-                const balance = data.model?.balance ?? 0;
-                const commission = data.model?.commission ?? 0;
-                const totalCredit = data.model?.totalCredit ?? 0;
-
-                const formatIqd = (val) => new Intl.NumberFormat('ar-IQ', { style: 'currency', currency: 'IQD', maximumFractionDigits: 0 }).format(val);
-
-                content.innerHTML = `
-                    <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 text-center space-y-1">
-                        <span class="text-xs text-slate-400">الرصيد المتوفر (Balance)</span>
-                        <div class="text-2xl font-black text-emerald-400 font-mono">
-                            ${formatIqd(balance)}
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-2 gap-3">
-                        <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-1">
-                            <span class="text-[11px] text-slate-400 block">رصيد العمولة (Commission)</span>
-                            <strong class="text-amber-400 font-mono text-sm block">${formatIqd(commission)}</strong>
-                        </div>
-
-                        <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-1">
-                            <span class="text-[11px] text-slate-400 block">مجموع الرصيد (Total Credit)</span>
-                            <strong class="text-brand-400 font-mono text-sm block">${formatIqd(totalCredit)}</strong>
-                        </div>
-                    </div>
-                `;
-
-            } catch (err) {
-                content.innerHTML = `
-                    <div class="bg-rose-500/10 p-4 rounded-xl border border-rose-500/20 text-center text-xs text-rose-400">
-                        <i class="fa-solid fa-circle-exclamation text-lg mb-1 block"></i>
-                        ${escapeHtml(err.message)}
-                    </div>
-                `;
-            }
-        }
-
-        function exportToCSV() {
-            if (!filteredCustomersData || filteredCustomersData.length === 0) {
-                showAlert('لا توجد بيانات لتصديرها', 'error');
-                return;
-            }
-
-            let csvContent = "\uFEFF"; // UTF-8 BOM
-            csvContent += "الاسم,الهاتف,اسم المستخدم,السيريال,FDT/FAT,رمز الجهاز,الشركة المصنعة,قدرة الإشارة,فئة الاشتراك,الانقضاء,الحالة,الملاحظات\n";
-
-            filteredCustomersData.forEach(item => {
-                const note = (userNotes[item.id] || '').replace(/"/g, '""');
-                const row = [
-                    `"${item.name}"`,
-                    `"${item.mobile}"`,
-                    `"${item.username}"`,
-                    `"${item.serial}"`,
-                    `"${item.fdt}/${item.fat}"`,
-                    `"${item.devicePassword}"`,
-                    `"${item.ontVendor}"`,
-                    `"${item.rxPower}"`,
-                    `"${item.category}"`,
-                    `"${item.remainingDaysText}"`,
-                    `"${item.status}"`,
-                    `"${note}"`
-                ];
-                csvContent += row.join(",") + "\n";
-            });
-
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement("a");
-            link.setAttribute("href", url);
-            link.setAttribute("download", `FTTH_Customers_${new Date().toISOString().split('T')[0]}.csv`);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
-
-        function toggleFilterPanel() {
-            document.getElementById('filterPanel').classList.toggle('hidden');
-        }
-
-        function resetAllFilters() {
-            document.getElementById('searchInput').value = '';
-            document.getElementById('statusFilter').value = 'ALL';
-            document.getElementById('vendorFilter').value = 'ALL';
-            document.getElementById('categoryFilter').value = 'ALL';
-            applyFacetedFilters();
-        }
-
-        function showAlert(msg, type = 'info') {
-            const alertBox = document.getElementById('alertBox');
-            const alertMessage = document.getElementById('alertMessage');
-            const alertIcon = document.getElementById('alertIcon');
-
-            alertMessage.innerText = msg;
-            alertBox.className = `mb-6 p-4 rounded-xl text-sm font-medium border flex items-center justify-between transition-all duration-300 `;
-
-            if (type === 'error') {
-                alertBox.classList.add('bg-rose-500/10', 'text-rose-400', 'border-rose-500/20');
-                alertIcon.className = 'fa-solid fa-circle-exclamation text-lg';
-            } else if (type === 'success') {
-                alertBox.classList.add('bg-emerald-500/10', 'text-emerald-400', 'border-emerald-500/20');
-                alertIcon.className = 'fa-solid fa-circle-check text-lg';
-            } else {
-                alertBox.classList.add('bg-brand-500/10', 'text-brand-400', 'border-brand-500/20');
-                alertIcon.className = 'fa-solid fa-info-circle text-lg';
-            }
-
-            alertBox.classList.remove('hidden');
-            setTimeout(() => { alertBox.classList.add('hidden'); }, 5000);
         }
 
         function escapeHtml(str) {
-            if (!str) return '';
-            return String(str)
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
-                .replace(/'/g, "&#039;");
+            if (typeof str !== 'string') return str;
+            return str.replace(/[&<>"']/g, function(m) {
+                return {
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#039;'
+                }[m];
+            });
         }
 
-        async function logout() {
-            if (auth) {
-                signOut(auth).catch(() => {});
+
+        // -------------------------------------------------------------
+        // 5. Excel Export Functionality (XLSX)
+        // -------------------------------------------------------------
+        function exportToExcel() {
+            if (subscriptionsData.length === 0) {
+                showToast('لا توجد بيانات للتصدير', 'error');
+                return;
             }
 
-            await clearSessionFromFirestore();
-            authToken = '';
-            currentAgentId = null;
-            currentAgentName = '';
-            currentUsername = '';
-            clearSessionState();
-            showLoginUi();
-            document.getElementById('usernameInput').value = '';
-            document.getElementById('passwordInput').value = '';
-            document.getElementById('currentAgentName').innerText = 'جاري التحديد...';
-            document.getElementById('currentAgentId').innerText = 'ID: ---';
-            document.getElementById('currentUserName').innerText = '';
+            const currentStatus = document.getElementById('subscriptionStatus').value;
+            const sheetTitle = currentStatus === 'Expired' ? "الاشتراكات المنتهية" : "سوف ينتهون قريباً";
+
+            // Map data to clean Arabic Excel Header structure
+            const excelRows = subscriptionsData.map((item, index) => ({
+                'ت': index + 1,
+                'اسم المشترك': item.customerName,
+                'رقم المعرف (Customer ID)': item.customerId,
+                'اسم المستخدم (Username)': item.username,
+                'المنطقة (Zone ID)': item.zoneId,
+                'رقم الهاتف': item.mobile,
+                'تاريخ الاشتراك': item.startedAt,
+                'تاريخ الانتهاء': item.expires,
+                'مدة الالتزام': item.commitmentPeriod
+            }));
+
+            // Create Worksheet
+            const worksheet = XLSX.utils.json_to_sheet(excelRows);
+
+            // Set Right-To-Left layout for worksheet
+            worksheet['!views'] = [{ RTL: true }];
+
+            // Define Column Widths
+            worksheet['!cols'] = [
+                { wch: 6 },   // #
+                { wch: 30 },  // Name
+                { wch: 22 },  // ID
+                { wch: 20 },  // Username
+                { wch: 15 },  // Zone ID
+                { wch: 18 },  // Mobile
+                { wch: 22 },  // StartedAt
+                { wch: 22 },  // Expires
+                { wch: 18 }   // Commitment
+            ];
+
+            // Create Workbook
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, sheetTitle);
+
+            // Generate Filename with selected status and date
+            const selectedDateVal = document.getElementById('selectedDate').value || 'report';
+            const statusPrefix = currentStatus === 'Expired' ? 'Expired' : 'ExpiringSoon';
+            const fileName = `FTTH_${statusPrefix}_Subscriptions_${selectedDateVal}.xlsx`;
+
+            // Download Excel file
+            XLSX.writeFile(workbook, fileName);
+
+            showToast('تم تصدير ملف Excel بنجاح', 'success');
         }
 
-        // Initialize Firebase on DOM Load
-        window.addEventListener('DOMContentLoaded', () => {
-            initFirebase();
-            restorePersistedSession().catch(() => {});
-        });
 
-        // Expose functions to global window scope for inline event attributes
-        window.handleLogin = handleLogin;
-        window.logout = logout;
-        window.handleNoteInput = handleNoteInput;
-        window.onNoteChanged = onNoteChanged;
-        window.registerWithEmailAndPassword = registerWithEmailAndPassword;
-        window.loginWithEmailAndPassword = loginWithEmailAndPassword;
-        window.onZoneChanged = onZoneChanged;
-        window.applyFacetedFilters = applyFacetedFilters;
-        window.resetAllFilters = resetAllFilters;
-        window.toggleFilterPanel = toggleFilterPanel;
-        window.exportToCSV = exportToCSV;
-        window.openModal = openModal;
-        window.closeModal = closeModal;
-        window.copyModalData = copyModalData;
-        window.checkOffers = checkOffers;
-        window.calculateOfferPrice = calculateOfferPrice;
-        window.closeOffersModal = closeOffersModal;
-        window.openWalletModal = openWalletModal;
-        window.closeWalletModal = closeWalletModal;
-        window.fetchWalletBalance = fetchWalletBalance;
-        window.onNoteChanged = onNoteChanged;
-        window.goToPage = goToPage;
-        window.goToFirstPage = goToFirstPage;
-        window.goToPrevPage = goToPrevPage;
-        window.goToNextPage = goToNextPage;
-        window.goToLastPage = goToLastPage;
-        window.onPageSizeChange = onPageSizeChange;
-        window.renderTablePage = renderTablePage;
+        // -------------------------------------------------------------
+        // 6. UI Toast Notifications
+        // -------------------------------------------------------------
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toastMessage');
+            const toastIcon = document.getElementById('toastIcon');
+
+            toastMessage.innerText = message;
+
+            if (type === 'success') {
+                toastIcon.className = 'fa-solid fa-circle-check text-emerald-400 text-lg';
+            } else if (type === 'error') {
+                toastIcon.className = 'fa-solid fa-circle-xmark text-rose-400 text-lg';
+            } else {
+                toastIcon.className = 'fa-solid fa-circle-info text-brand-400 text-lg';
+            }
+
+            toast.classList.remove('hidden', 'translate-y-2');
+            toast.classList.add('translate-y-0');
+
+            setTimeout(() => {
+                toast.classList.add('translate-y-2');
+                setTimeout(() => {
+                    toast.classList.add('hidden');
+                }, 300);
+            }, 4000);
+        }
     </script>
 </body>
 </html>
