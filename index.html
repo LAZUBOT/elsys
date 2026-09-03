@@ -267,10 +267,7 @@
         let filteredSubscriptionsData = [];
 
         // Base API Configuration
-        // Pointing at the Cloudflare Worker proxy (see ftth-proxy/DEPLOY-CLOUDFLARE.md).
-        // After deploying the Worker, replace the URL below with your real
-        // Worker URL, e.g. "https://ftth-proxy.<your-subdomain>.workers.dev/api"
-        const API_BASE = "https://ftth.wathiq-iq.deno.net";
+        const API_BASE = "https://ftth.wathiq-iq.deno.net/api";
 
         // Initialize App on DOM Ready
         document.addEventListener('DOMContentLoaded', () => {
